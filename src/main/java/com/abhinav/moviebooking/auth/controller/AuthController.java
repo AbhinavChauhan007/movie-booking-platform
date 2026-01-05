@@ -7,8 +7,11 @@ import com.abhinav.moviebooking.security.JwtUtil;
 import com.abhinav.moviebooking.security.token.TokenBlackListService;
 import com.abhinav.moviebooking.security.token.entity.RefreshToken;
 import com.abhinav.moviebooking.security.token.service.RefreshTokenService;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -63,21 +66,38 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpServletRequest request) {
 
-        // 1. Blacklist ACCESS TOKEN
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String accessToken = authHeader.substring(7);
-            long expiry = jwtUtil.extractExpiration(accessToken);
-            blackListService.blackList(accessToken, expiry);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Missing or invalid Authorization Header");
         }
 
-        // 2. clear security context
-        SecurityContextHolder.clearContext();
 
-        return ResponseEntity.ok()
-                .body("Logged out successfully.");
+        try{
+            // 2. Validate token (this MUST verify signature + expiry)
+            String accessToken = authHeader.substring(7);
+            long expiry = jwtUtil.extractExpiration(accessToken);
 
+            // 2. Blacklist ACCESS TOKEN
+            blackListService.blackList(accessToken, expiry);
+
+            // 3. clear security context
+            SecurityContextHolder.clearContext();
+
+            return  ResponseEntity.ok().body("Logged out successfully");
+        }
+        catch (ExpiredJwtException e){
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("Expired JWT Token");
+        }
+        catch (JwtException e){
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("Invalid JWT Token");
+        }
     }
 
 

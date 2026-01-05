@@ -1,7 +1,5 @@
 package com.abhinav.moviebooking.booking.seat.strategy;
 
-import com.abhinav.moviebooking.booking.seat.strategy.impl.BestAvailableSeatStrategy;
-import com.abhinav.moviebooking.booking.seat.strategy.impl.FirstAvailableSeatStrategy;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
