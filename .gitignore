@@ -10,6 +10,7 @@ target/
 .env
 /application-local.yml
 /application-local.properties
+*.mv.db
 
 
 ### STS ###
