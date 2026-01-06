@@ -1,9 +1,10 @@
-package com.abhinav.moviebooking.booking;
+package com.abhinav.moviebooking;
 
 import com.abhinav.moviebooking.booking.facade.BookingFacade;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.Test;
 
 @SpringBootTest
 public class BookingFacadeWorkflowTest {

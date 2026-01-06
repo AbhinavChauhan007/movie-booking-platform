@@ -1,8 +1,11 @@
-package com.abhinav.moviebooking.pricing.context;
+package com.abhinav.moviebooking;
 
+import com.abhinav.moviebooking.pricing.context.PricingContext;
+import com.abhinav.moviebooking.pricing.context.PricingRequest;
 import com.abhinav.moviebooking.pricing.strategy.PremiumUserPricingStrategy;
 import com.abhinav.moviebooking.pricing.strategy.RegularPricingStrategy;
 import com.abhinav.moviebooking.pricing.strategy.WeekendPricingStrategy;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
