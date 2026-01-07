@@ -12,10 +12,7 @@ public class BookingStateFactory {
 
     private final Map<BookingStatus, BookingState> stateMap;
 
-    public BookingStateFactory(InitiatedState initiatedState,
-                               ConfirmedState confirmedState,
-                               CancelledState cancelledState,
-                               ExpiredState expiredState) {
+    public BookingStateFactory(InitiatedState initiatedState, ConfirmedState confirmedState, CancelledState cancelledState, ExpiredState expiredState) {
         this.stateMap = new EnumMap<>(BookingStatus.class);
         stateMap.put(BookingStatus.INITIATED, initiatedState);
         stateMap.put(BookingStatus.CONFIRMED, confirmedState);

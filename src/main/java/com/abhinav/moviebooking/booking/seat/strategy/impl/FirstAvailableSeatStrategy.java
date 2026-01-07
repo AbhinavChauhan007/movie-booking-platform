@@ -9,9 +9,14 @@ public class FirstAvailableSeatStrategy implements SeatAllocationStrategy {
 
     @Override
     public void allocateSeats(Long showId, int seatCount) {
-        System.out.println("Allocating " + seatCount + " first available seats for show " + showId);
-        // Logic to pick the first available seats
-        // This is placeholder for learning purposes
+        System.out.println("Allocating " + seatCount +
+                " FIRST AVAILABLE seats for show " + showId);
+    }
+
+    @Override
+    public void releaseSeats(Long showId, int seatCount) {
+        System.out.println("Releasing " + seatCount +
+                " FIRST AVAILABLE seats for show " + showId);
     }
 
     @Override

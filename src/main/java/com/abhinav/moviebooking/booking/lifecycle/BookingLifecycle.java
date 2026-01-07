@@ -2,24 +2,33 @@ package com.abhinav.moviebooking.booking.lifecycle;
 
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
-
-import static java.util.Map.entry;
 
 public class BookingLifecycle {
 
     private BookingLifecycle() {
     }
 
-    private static final Map<BookingStatus, EnumSet<BookingStatus>> ALLOWED_TRANSACTION
-            = Map.ofEntries(
-            entry(BookingStatus.INITIATED, EnumSet.of(BookingStatus.SEATS_LOCKED, BookingStatus.CANCELLED)),
-            entry(BookingStatus.SEATS_LOCKED, EnumSet.of(BookingStatus.PENDING_PAYMENT, BookingStatus.EXPIRED, BookingStatus.CANCELLED)),
-            entry(BookingStatus.PENDING_PAYMENT, EnumSet.of(BookingStatus.CONFIRMED, BookingStatus.EXPIRED, BookingStatus.CANCELLED)),
-            entry(BookingStatus.CONFIRMED, EnumSet.noneOf(BookingStatus.class)),
-            entry(BookingStatus.CANCELLED, EnumSet.noneOf(BookingStatus.class)),
-            entry(BookingStatus.EXPIRED, EnumSet.noneOf(BookingStatus.class)));
+    private static final Map<BookingStatus, EnumSet<BookingStatus>> ALLOWED_TRANSITION = new EnumMap<>(BookingStatus.class);
+
+    static {
+        ALLOWED_TRANSITION.put(
+                BookingStatus.CREATED,
+                EnumSet.of(BookingStatus.INITIATED, BookingStatus.CANCELLED, BookingStatus.EXPIRED)
+        );
+
+        ALLOWED_TRANSITION.put(
+                BookingStatus.INITIATED,
+                EnumSet.of(BookingStatus.CONFIRMED, BookingStatus.EXPIRED, BookingStatus.CANCELLED)
+        );
+
+        ALLOWED_TRANSITION.put(
+                BookingStatus.CONFIRMED,
+                EnumSet.of(BookingStatus.CANCELLED)
+        );
+    }
 
     public static void validTransition(BookingStatus current, BookingStatus next) {
 
@@ -27,16 +36,21 @@ public class BookingLifecycle {
             throw new IllegalArgumentException(
                     "Booking status can not be null");
 
+        if (current == next) {
+            throw new IllegalArgumentException(
+                    "Invalid booking transition from " + current + " to " + next
+            );
+        }
+
         if (current.isFinal())
             throw new IllegalArgumentException(
                     "Cannot transition from final state: " + current);
 
-        EnumSet<BookingStatus> allowedStatus = ALLOWED_TRANSACTION.get(current);
-
-        if (allowedStatus == null || !allowedStatus.contains(next))
-            throw new IllegalStateException(
-                    "Invalid booking status transition: " + current + " -> " + next
+        if (!ALLOWED_TRANSITION.getOrDefault(current, EnumSet.noneOf(BookingStatus.class)).contains(next)) {
+            throw new IllegalArgumentException(
+                    "Invalid booking transition from " + current + " to " + next
             );
+        }
     }
 
 

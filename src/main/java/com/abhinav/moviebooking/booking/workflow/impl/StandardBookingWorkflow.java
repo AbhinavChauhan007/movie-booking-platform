@@ -1,11 +1,12 @@
 package com.abhinav.moviebooking.booking.workflow.impl;
 
+import com.abhinav.moviebooking.booking.domain.Booking;
+import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
-import com.abhinav.moviebooking.booking.state.impl.ConfirmedState;
-import com.abhinav.moviebooking.booking.state.impl.InitiatedState;
+import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.BookingWorkflow;
+import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
 import com.abhinav.moviebooking.pricing.context.PricingContext;
 import com.abhinav.moviebooking.pricing.context.PricingRequest;
 import com.abhinav.moviebooking.pricing.strategy.PricingStrategy;
@@ -17,36 +18,13 @@ import java.time.LocalDate;
 @Component
 public class StandardBookingWorkflow extends BookingWorkflow {
 
-    // runtime data (set by facade)
-    private Long bookingId;
-    private Long showId;
-    private int seatCount;
-    private SeatType seatType;
-
-    // ===== Calculated values =====
-    private double finalPrice;
-
-    private final SeatAllocationStrategyFactory seatAllocationStrategyFactory;
-    private final InitiatedState initiatedState;
-    private final ConfirmedState confirmedState;
     private final PricingContext pricingContext;
+    private final BookingIdempotencyGuard bookingIdempotencyGuard;
 
-    public StandardBookingWorkflow(SeatAllocationStrategyFactory seatAllocationStrategyFactory, InitiatedState initiatedState, ConfirmedState confirmedState, PricingContext pricingContext) {
-        this.seatAllocationStrategyFactory = seatAllocationStrategyFactory;
-        this.initiatedState = initiatedState;
-        this.confirmedState = confirmedState;
+    public StandardBookingWorkflow(SeatAllocationStrategyFactory seatAllocationStrategyFactory, PricingContext pricingContext, BookingIdempotencyGuard bookingIdempotencyGuard) {
+        super(seatAllocationStrategyFactory);
         this.pricingContext = pricingContext;
-    }
-
-    /**
-     * Initialize workflow with runtime data.
-     * This method MUST be called before execute().
-     */
-    public void init(SeatType seatType, int seatCount, Long showId, Long bookingId) {
-        this.seatType = seatType;
-        this.seatCount = seatCount;
-        this.showId = showId;
-        this.bookingId = bookingId;
+        this.bookingIdempotencyGuard = bookingIdempotencyGuard;
     }
 
     // ==================================================
@@ -54,61 +32,51 @@ public class StandardBookingWorkflow extends BookingWorkflow {
     // ==================================================
 
     @Override
-    protected void validate() {
-        // Placeholder for validation rules
-        // Example: seatCount > 0, show exists, bookingId unique, etc.
-        System.out.println("Validating booking request for bookingId=" + bookingId);
+    protected void validate(Booking booking, BookingExecutionContext context) {
+
+        bookingIdempotencyGuard.checkExecutable(booking);
+
+        if (context.getSeatCount() < 0)
+            throw new IllegalArgumentException("Seat must be more than zero");
+
+        if (booking.getBookingStatus().isFinal())
+            throw new IllegalArgumentException("Booking is already in final state");
+
+        System.out.println("Validating booking request for bookingId : " + booking.getBookingId());
     }
 
     @Override
-    protected void allocateSeats() {
+    protected void allocateSeats(Booking booking, BookingExecutionContext context) {
         // delegate to SeatAllocationStrategy
-        SeatAllocationStrategy seatAllocationStrategy = seatAllocationStrategyFactory.getStrategy(seatType);
-
-        seatAllocationStrategy.allocateSeats(showId, seatCount);
+        SeatAllocationStrategy seatAllocationStrategy = seatAllocationStrategyFactory.getStrategy(context.getSeatType());
+        seatAllocationStrategy.allocateSeats(context.getShowId(), context.getSeatCount());
+        booking.transitionTo(BookingStatus.INITIATED);
+        System.out.println("Booking " + booking.getBookingId() + " transitioned to INITIATED");
     }
 
     @Override
-    protected void calculatePrice() {
+    protected void calculatePrice(Booking booking, BookingExecutionContext context) {
         // delegate to PricingStrategy
-        double basePrice = seatCount * 200; // temporary pricing value
-
-        PricingRequest pricingRequest = new PricingRequest(
-                basePrice,
-                isWeekend(),
-                false // assume non - premium user for now
+        double basePrice = context.getSeatCount() * 200; // temporary pricing value
+        PricingRequest pricingRequest = new PricingRequest(basePrice, isWeekend(), false // assume non - premium user for now
         );
-
         PricingStrategy pricingStrategy = pricingContext.resolve(pricingRequest);
 
-        this.finalPrice = pricingStrategy.calculatePrice(pricingRequest);
-
-        System.out.println("Final price for booking " + bookingId + " is " + finalPrice);
+        context.setFinalPrice(pricingStrategy.calculatePrice(pricingRequest));
+        System.out.println("Final price for booking " + booking.getBookingId() + " is " + context.getFinalPrice());
     }
 
     @Override
-    protected void initiatePayment() {
+    protected void initiatePayment(Booking booking, BookingExecutionContext context) {
         // payment gateway
-        System.out.println(
-                "Initiating payment for booking " + bookingId +
-                        " with amount " + finalPrice
-        );
+        System.out.println("Initiating payment for booking " + booking.getBookingId() + " with amount " + context.getFinalPrice());
     }
 
     @Override
-    protected void confirmBooking() {
-        // move booking to CONFIRMED state
-        initiatedState.handle(bookingId);
-        confirmedState.handle(bookingId);
-    }
-
-    public void confirmOnly(Long bookingId) {
-        confirmedState.handle(bookingId);
-    }
-
-    public void allocateSeatsOnly(Long showId, int seatCount, SeatType seatType) {
-        SeatAllocationStrategy seatAllocationStrategy = seatAllocationStrategyFactory.getStrategy(seatType);
-        seatAllocationStrategy.allocateSeats(showId, seatCount);
+    protected void confirmBooking(Booking booking, BookingExecutionContext context) {
+        // Domain Transition (rules enforced)
+        booking.transitionTo(BookingStatus.CONFIRMED);
+        System.out.println("Booking " + booking.getBookingId() + " CONFIRMED");
     }
 
     // ==================================================

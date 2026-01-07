@@ -9,14 +9,18 @@ public class BestAvailableSeatStrategy implements SeatAllocationStrategy {
 
     @Override
     public void allocateSeats(Long showId, int seatCount) {
-        System.out.println("Allocating " + seatCount + " best available seats for show " + showId);
-        // Logic to pick the best available seats
-        // This is placeholder for learning purposes
+        System.out.println("Allocating " + seatCount +
+                " BEST AVAILABLE seats for show " + showId);
+    }
+
+    @Override
+    public void releaseSeats(Long showId, int seatCount) {
+        System.out.println("Releasing " + seatCount +
+                " BEST AVAILABLE seats for show " + showId);
     }
 
     @Override
     public SeatType getSeatType() {
         return SeatType.BEST_AVAILABLE;
     }
-
 }

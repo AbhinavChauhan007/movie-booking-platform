@@ -10,5 +10,8 @@ public interface SeatAllocationStrategy {
      */
     void allocateSeats(Long showId, int seatCount);
 
+    void releaseSeats(Long showId, int seatCount);
+
+
     SeatType getSeatType();
 }
