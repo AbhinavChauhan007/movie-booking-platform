@@ -2,8 +2,8 @@ package com.abhinav.moviebooking.booking.workflow;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
+import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
+import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategyFactory;
 
 public abstract class BookingWorkflow {
 

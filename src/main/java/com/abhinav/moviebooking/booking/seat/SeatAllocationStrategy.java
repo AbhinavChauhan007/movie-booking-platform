@@ -1,4 +1,4 @@
-package com.abhinav.moviebooking.booking.seat.strategy;
+package com.abhinav.moviebooking.booking.seat;
 
 public interface SeatAllocationStrategy {
 

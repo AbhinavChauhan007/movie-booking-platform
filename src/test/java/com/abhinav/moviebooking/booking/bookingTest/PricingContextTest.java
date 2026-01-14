@@ -1,4 +1,4 @@
-package com.abhinav.moviebooking.booking;
+package com.abhinav.moviebooking.booking.bookingTest;
 
 import com.abhinav.moviebooking.pricing.context.PricingContext;
 import com.abhinav.moviebooking.pricing.context.PricingRequest;

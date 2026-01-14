@@ -1,13 +1,11 @@
 package com.abhinav.moviebooking.booking.dto.request;
 
-import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
+import com.abhinav.moviebooking.booking.seat.SeatType;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public class BookingRequestDTO {
-
-    @NotNull
-    private Long bookingId;
 
     @NotNull
     private Long showId;
@@ -15,7 +13,11 @@ public class BookingRequestDTO {
     @Min(1)
     private Integer seatCount;
 
+    @NotNull
     private SeatType seatType;
+
+    @NotBlank
+    private String idempotencyKey;
 
     public Long getShowId() {
         return showId;
@@ -41,11 +43,11 @@ public class BookingRequestDTO {
         this.seatType = seatType;
     }
 
-    public Long getBookingId() {
-        return bookingId;
+    public String getIdempotencyKey() {
+        return idempotencyKey;
     }
 
-    public void setBookingId(Long bookingId) {
-        this.bookingId = bookingId;
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 }

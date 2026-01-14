@@ -15,10 +15,6 @@ public class BookingIdempotencyGuard {
 
         BookingStatus bookingStatus = booking.getBookingStatus();
 
-        if(bookingStatus == BookingStatus.CONFIRMED){
-            throw new IllegalArgumentException("Booking " + booking.getBookingId() + " is already CONFIRMED");
-        }
-
         if(bookingStatus == BookingStatus.CANCELLED){
             throw new IllegalArgumentException("Booking " + booking.getBookingId() + " is already cancelled");
         }

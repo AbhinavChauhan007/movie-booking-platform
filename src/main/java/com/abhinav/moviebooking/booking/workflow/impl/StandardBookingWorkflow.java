@@ -2,8 +2,8 @@ package com.abhinav.moviebooking.booking.workflow.impl;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
+import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
+import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategyFactory;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.BookingWorkflow;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;

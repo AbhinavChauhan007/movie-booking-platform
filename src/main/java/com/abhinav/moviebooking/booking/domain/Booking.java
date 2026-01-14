@@ -5,16 +5,22 @@ import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 
 public class Booking {
 
-    private final Long bookingId;
+    private Long bookingId;
     private BookingStatus bookingStatus;
-    private final long createdAt;
 
     private BookingExecutionContext bookingExecutionContext;
 
-    public Booking(Long bookingId) {
-        this.bookingId = bookingId;
+    public Booking() {
         this.bookingStatus = BookingStatus.CREATED;
-        this.createdAt = System.currentTimeMillis();
+    }
+
+    public Booking(Long bookingId, BookingStatus bookingStatus) {
+        this.bookingId = bookingId;
+        this.bookingStatus = bookingStatus;
+    }
+
+    public void assignId(Long bookingId) {
+        this.bookingId = bookingId;
     }
 
     public void attachExecutionContext(BookingExecutionContext bookingExecutionContext) {
@@ -33,9 +39,6 @@ public class Booking {
         return bookingStatus;
     }
 
-    public long getCreatedAt() {
-        return createdAt;
-    }
 
     public void transitionTo(BookingStatus targetStatus) {
         BookingLifecycle.validTransition(this.bookingStatus, targetStatus);

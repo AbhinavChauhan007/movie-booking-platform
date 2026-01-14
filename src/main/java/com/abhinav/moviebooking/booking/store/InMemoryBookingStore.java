@@ -8,17 +8,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
+@Deprecated
 public class InMemoryBookingStore {
 
     private final Map<Long, Booking> bookingStore = new ConcurrentHashMap<>();
 
-    public Booking create(Long bookingId) {
-        Booking booking = new Booking(bookingId);
-        bookingStore.computeIfAbsent(
-                bookingId,
-                Booking::new);
-        return booking;
-    }
+//    public Booking create(Long bookingId) {
+//        Booking booking = new Booking(bookingId);
+//        bookingStore.computeIfAbsent(
+//                bookingId,
+//                Booking::new);
+//        return booking;
+//    }
 
     public Booking findById(Long bookingId) {
         Booking booking = bookingStore.get(bookingId);

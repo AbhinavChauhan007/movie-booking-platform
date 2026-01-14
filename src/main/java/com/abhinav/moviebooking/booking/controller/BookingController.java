@@ -29,10 +29,10 @@ public class BookingController {
     @PostMapping("/initiate")
     public ResponseEntity<BookingResponseDTO> initiateBooking(@RequestBody @Valid BookingRequestDTO requestDTO) {
         Booking booking = bookingFacade.initiateBooking(
-                requestDTO.getBookingId(),
                 requestDTO.getShowId(),
                 requestDTO.getSeatCount(),
-                requestDTO.getSeatType()
+                requestDTO.getSeatType(),
+                requestDTO.getIdempotencyKey()
         );
         return ResponseEntity.ok(
                 new BookingResponseDTO(

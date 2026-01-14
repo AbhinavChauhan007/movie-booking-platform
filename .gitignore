@@ -11,6 +11,7 @@ target/
 /application-local.yml
 /application-local.properties
 *.mv.db
+/output.txt
 
 
 ### STS ###

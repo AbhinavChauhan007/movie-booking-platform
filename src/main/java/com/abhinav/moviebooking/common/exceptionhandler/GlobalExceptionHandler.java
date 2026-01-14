@@ -1,6 +1,7 @@
 package com.abhinav.moviebooking.common.exceptionhandler;
 
 
+import com.abhinav.moviebooking.booking.exception.BookingConcurrencyException;
 import com.abhinav.moviebooking.common.dto.error.ApiErrorResponse;
 import com.abhinav.moviebooking.common.exception.BusinessException;
 import com.abhinav.moviebooking.common.exception.ResourceNotFoundException;
@@ -10,8 +11,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
@@ -108,6 +111,20 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
+                .body(response);
+    }
+
+    @ExceptionHandler(BookingConcurrencyException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ResponseEntity<ApiErrorResponse> handleConcurrencyException(Exception ex, HttpServletRequest request) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "BOOKING_CONFLICT",
+                ex.getMessage(),
+                request.getRequestURI());
+
+        return  ResponseEntity
+                .status(HttpStatus.CONFLICT)
                 .body(response);
     }
 }

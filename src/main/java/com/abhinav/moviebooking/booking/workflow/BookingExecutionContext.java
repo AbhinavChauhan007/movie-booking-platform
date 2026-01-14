@@ -1,6 +1,6 @@
 package com.abhinav.moviebooking.booking.workflow;
 
-import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
+import com.abhinav.moviebooking.booking.seat.SeatType;
 
 public class BookingExecutionContext {
 

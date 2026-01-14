@@ -1,4 +1,4 @@
-package com.abhinav.moviebooking.booking.domain;
+package com.abhinav.moviebooking.booking.exception;
 
 public class InvalidBookingStateException extends RuntimeException {
     public InvalidBookingStateException(String message) {

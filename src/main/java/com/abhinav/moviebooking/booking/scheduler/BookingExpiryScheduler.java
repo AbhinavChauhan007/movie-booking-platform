@@ -1,22 +1,27 @@
 package com.abhinav.moviebooking.booking.scheduler;
 
+import com.abhinav.moviebooking.booking.cache.BookingCache;
 import com.abhinav.moviebooking.booking.domain.Booking;
-import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.store.InMemoryBookingStore;
+import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
 import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.List;
 
 @Component
 public class BookingExpiryScheduler {
 
     private static final long EXPIRY_DURATION_MS = 60_000; // 1 minute
 
-    private final InMemoryBookingStore bookingStore;
     private final StandardBookingWorkflow standardBookingWorkflow;
+    private final BookingPersistenceAdapter bookingPersistenceAdapter;
+    private final BookingCache bookingCache;
 
-    public BookingExpiryScheduler(InMemoryBookingStore bookingStore, StandardBookingWorkflow standardBookingWorkflow) {
-        this.bookingStore = bookingStore;
+    public BookingExpiryScheduler(StandardBookingWorkflow standardBookingWorkflow, BookingPersistenceAdapter bookingPersistenceAdapter, BookingCache bookingCache) {
+        this.bookingPersistenceAdapter = bookingPersistenceAdapter;
+        this.bookingCache = bookingCache;
         this.standardBookingWorkflow = standardBookingWorkflow;
     }
 
@@ -25,12 +30,19 @@ public class BookingExpiryScheduler {
      */
     @Scheduled(fixedDelay = 10_000)
     public void expireOldBookings() {
-        long now = System.currentTimeMillis();
+        Instant expiryThreshold = Instant.now().minusMillis(EXPIRY_DURATION_MS);
 
-        for (Booking booking : bookingStore.findAll()) {
-            if (booking.getBookingStatus() == BookingStatus.INITIATED &&
-                    now - booking.getCreatedAt() > EXPIRY_DURATION_MS)
+        List<Booking> expiredBookings = bookingPersistenceAdapter.findExpiredInitiatedBookings(expiryThreshold);
+
+        for (Booking booking : expiredBookings) {
+            try {
                 standardBookingWorkflow.expireBooking(booking);
+                bookingPersistenceAdapter.save(booking);
+                bookingCache.put(booking);
+            } catch (Exception e) {
+                // optimistic lock failures are expected in concurrency
+                System.out.println(e.getMessage());
+            }
         }
     }
 }
