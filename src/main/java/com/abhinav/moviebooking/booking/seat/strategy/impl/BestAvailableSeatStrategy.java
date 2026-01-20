@@ -4,19 +4,15 @@ import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
 import com.abhinav.moviebooking.booking.seat.SeatType;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class BestAvailableSeatStrategy implements SeatAllocationStrategy {
 
     @Override
-    public void allocateSeats(Long showId, int seatCount) {
-        System.out.println("Allocating " + seatCount +
-                " BEST AVAILABLE seats for show " + showId);
-    }
-
-    @Override
-    public void releaseSeats(Long showId, int seatCount) {
-        System.out.println("Releasing " + seatCount +
-                " BEST AVAILABLE seats for show " + showId);
+    public List<String> selectSeats(Long showId, int seatCount) {
+        // placeholder: Redis will enforce actual availability
+        return List.of();
     }
 
     @Override

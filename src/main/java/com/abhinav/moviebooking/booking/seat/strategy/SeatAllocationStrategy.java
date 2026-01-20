@@ -1,5 +1,7 @@
 package com.abhinav.moviebooking.booking.seat;
 
+import java.util.List;
+
 public interface SeatAllocationStrategy {
 
     /**
@@ -8,10 +10,10 @@ public interface SeatAllocationStrategy {
      * @param showId    ID of the show
      * @param seatCount number of seats to allocate
      */
-    void allocateSeats(Long showId, int seatCount);
-
-    void releaseSeats(Long showId, int seatCount);
-
+    List<String> selectSeats(
+            Long showId,
+            int seatCount
+    );
 
     SeatType getSeatType();
 }

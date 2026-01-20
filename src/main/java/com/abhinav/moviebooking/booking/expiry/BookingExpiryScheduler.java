@@ -13,7 +13,7 @@ import java.util.List;
 @Component
 public class BookingExpiryScheduler {
 
-    private static final long EXPIRY_DURATION_MS = 60_000; // 1 minute
+    private static final long EXPIRY_DURATION_MS = 3_00_000; // 1 minute
 
     private final StandardBookingWorkflow standardBookingWorkflow;
     private final BookingPersistenceAdapter bookingPersistenceAdapter;
