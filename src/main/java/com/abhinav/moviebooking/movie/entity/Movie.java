@@ -1,9 +1,6 @@
 package com.abhinav.moviebooking.movie.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
 public class Movie {
@@ -12,13 +9,13 @@ public class Movie {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-//    @JsonProperty("title")
+    @Column(nullable = false)
     private String title;
 
-//    @JsonProperty("genre")
+    @Column(nullable = false)
     private String genre;
 
-//    @JsonProperty("durationMinutes")
+    @Column(name = "duration_mins" , nullable = false)
     private int durationMinutes;
 
     // Default constructor - mandatory for Jackson

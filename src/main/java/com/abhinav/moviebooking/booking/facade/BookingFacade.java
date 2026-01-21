@@ -7,9 +7,10 @@ import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAd
 import com.abhinav.moviebooking.booking.persistence.entity.BookingIdempotencyEntity;
 import com.abhinav.moviebooking.booking.persistence.repository.BookingIdempotencyRepository;
 import com.abhinav.moviebooking.booking.read.BookingReadService;
-import com.abhinav.moviebooking.booking.seat.SeatType;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
+import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -35,12 +36,14 @@ public class BookingFacade {
     /**
      * Initiates a booking: creates Booking domain, creates ExecutionContext, and executes workflow.
      */
+    @Transactional
     public Booking initiateBooking(Long showId, int seatCount, SeatType seatType, String idempotencyKey) {
 
         // check if this idempotency key already exists
         BookingIdempotencyEntity existing = bookingIdempotencyRepository.
                 findById(idempotencyKey)
                 .orElse(null);
+
         if (existing != null) {
             return bookingReadService.getBooking(existing.getBookingId());
         }
@@ -48,7 +51,7 @@ public class BookingFacade {
         // Normal booking flow
 
         // 1. Create Booking object
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
 
         // 2. Create request context (runtime data)
         BookingExecutionContext context = new BookingExecutionContext(showId, seatCount, seatType);
@@ -61,7 +64,6 @@ public class BookingFacade {
 
         // 5. write through
         Booking savedBooking = bookingPersistenceAdapter.save(booking);
-        bookingCache.put(savedBooking);
 
         // save idempotency mapping
         try {
@@ -78,12 +80,15 @@ public class BookingFacade {
             );
         }
 
+        bookingCache.put(savedBooking);
+
         return savedBooking;
     }
 
     /**
      * Cancel a booking
      */
+    @Transactional
     public Booking cancelBooking(long bookingId) {
         Booking booking = bookingReadService.getBooking(bookingId);
 
@@ -92,12 +97,13 @@ public class BookingFacade {
         Booking savedBooking = bookingPersistenceAdapter.save(booking);
         bookingCache.put(savedBooking);
 
-        return booking;
+        return savedBooking;
     }
 
     /**
      * Expire a booking
      */
+    @Transactional
     public Booking expireBooking(long bookingId) {
         Booking booking = bookingReadService.getBooking(bookingId);
 
@@ -106,7 +112,7 @@ public class BookingFacade {
         Booking savedBooking = bookingPersistenceAdapter.save(booking);
         bookingCache.put(savedBooking);
 
-        return booking;
+        return savedBooking;
     }
 
     /**

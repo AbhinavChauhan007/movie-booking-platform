@@ -9,7 +9,7 @@ import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAd
 import com.abhinav.moviebooking.booking.persistence.entity.BookingIdempotencyEntity;
 import com.abhinav.moviebooking.booking.persistence.repository.BookingIdempotencyRepository;
 import com.abhinav.moviebooking.booking.read.BookingReadService;
-import com.abhinav.moviebooking.booking.seat.SeatType;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -42,7 +42,7 @@ class BookingFacadeTest {
 
     @Test
     void shouldInitiateBookingSuccessfully() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.assignId(1L);
 
         when(bookingIdempotencyRepository.findById("key-1"))
@@ -66,7 +66,7 @@ class BookingFacadeTest {
     @Test
     void shouldReturnExistingBookingForSameIdempotency() {
         // given
-        Booking existingBooking = new Booking();
+        Booking existingBooking = Booking.newBooking();
         existingBooking.assignId(99L);
 
         when(bookingIdempotencyRepository.findById("dup-key"))
@@ -86,7 +86,7 @@ class BookingFacadeTest {
 
     @Test
     void shouldCancelBooking() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.assignId(5L);
         booking.transitionTo(BookingStatus.INITIATED);
 
@@ -110,7 +110,7 @@ class BookingFacadeTest {
     @Test
     void shouldExpireBooking() {
         // given
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.assignId(6L);
         booking.transitionTo(BookingStatus.INITIATED);
 
@@ -147,7 +147,7 @@ class BookingFacadeTest {
 
     @Test
     void shouldFailCancelIfAlreadyCancelled() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.assignId(1L);
         booking.transitionTo(BookingStatus.CANCELLED);
 

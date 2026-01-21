@@ -29,7 +29,7 @@ public class BookingReadServiceTest {
     @Test
     @DisplayName("Should return booking from cache")
     void shouldReturnBookingFromCache() {
-        Booking cachedBooking = new Booking();
+        Booking cachedBooking = Booking.newBooking();
         cachedBooking.assignId(1L);
 
         when(bookingCache.get(1L)).thenReturn(Optional.of(cachedBooking));

@@ -1,9 +1,14 @@
 package com.abhinav.moviebooking.booking.workflow.impl;
 
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategyFactory;
+import com.abhinav.moviebooking.booking.payment.PaymentConfirmationService;
+import com.abhinav.moviebooking.booking.persistence.adapter.SeatBookingPersistenceAdapter;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
+import com.abhinav.moviebooking.booking.seat.service.SeatService;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.BookingWorkflow;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
@@ -14,17 +19,28 @@ import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.List;
 
 @Component
 public class StandardBookingWorkflow extends BookingWorkflow {
 
     private final PricingContext pricingContext;
     private final BookingIdempotencyGuard bookingIdempotencyGuard;
+    private final BookingCancellationService bookingCancellationService;
+    private final PaymentConfirmationService paymentConfirmationService;
 
-    public StandardBookingWorkflow(SeatAllocationStrategyFactory seatAllocationStrategyFactory, PricingContext pricingContext, BookingIdempotencyGuard bookingIdempotencyGuard) {
-        super(seatAllocationStrategyFactory);
+
+    public StandardBookingWorkflow(
+            SeatService seatService,
+            PricingContext pricingContext,
+            BookingIdempotencyGuard bookingIdempotencyGuard,
+            BookingCancellationService bookingCancellationService,
+            PaymentConfirmationService paymentConfirmationService) {
+        super(seatService);
         this.pricingContext = pricingContext;
         this.bookingIdempotencyGuard = bookingIdempotencyGuard;
+        this.bookingCancellationService = bookingCancellationService;
+        this.paymentConfirmationService = paymentConfirmationService;
     }
 
     // ==================================================
@@ -36,8 +52,8 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
         bookingIdempotencyGuard.checkExecutable(booking);
 
-        if (context.getSeatCount() < 0)
-            throw new IllegalArgumentException("Seat must be more than zero");
+        if (context.getSeatCount() <= 0)
+            throw new IllegalArgumentException("Seat(s) must be more than zero");
 
         if (booking.getBookingStatus().isFinal())
             throw new IllegalArgumentException("Booking is already in final state");
@@ -47,11 +63,19 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
     @Override
     protected void allocateSeats(Booking booking, BookingExecutionContext context) {
-        // delegate to SeatAllocationStrategy
-        SeatAllocationStrategy seatAllocationStrategy = seatAllocationStrategyFactory.getStrategy(context.getSeatType());
-        seatAllocationStrategy.allocateSeats(context.getShowId(), context.getSeatCount());
+        // Redis executes atomic allocation
+        List<String> allocatedSeats = seatService.allocateSeats(
+                context.getShowId(),
+                context.getSeatCount(),
+                booking.getBookingId()
+        );
+        context.setAllocatedSeats(allocatedSeats);
         booking.transitionTo(BookingStatus.INITIATED);
-        System.out.println("Booking " + booking.getBookingId() + " transitioned to INITIATED");
+        System.out.println(
+                "Booking " + booking.getBookingId() +
+                        " allocated seats " + allocatedSeats +
+                        " using strategy " + context.getSeatType()
+        );
     }
 
     @Override
@@ -74,9 +98,16 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
     @Override
     protected void confirmBooking(Booking booking, BookingExecutionContext context) {
-        // Domain Transition (rules enforced)
-        booking.transitionTo(BookingStatus.CONFIRMED);
+        paymentConfirmationService.confirmPayment(booking.getBookingId());
         System.out.println("Booking " + booking.getBookingId() + " CONFIRMED");
+    }
+
+    @Override
+    protected void compensate(Booking booking) {
+        bookingCancellationService.cancelBooking(
+                booking.getBookingId(),
+                BookingCancellationReason.SYSTEM_ERROR
+        );
     }
 
     // ==================================================

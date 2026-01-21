@@ -12,6 +12,7 @@ target/
 /application-local.properties
 *.mv.db
 /output.txt
+/MASTER ROADMAP.txt
 
 
 ### STS ###

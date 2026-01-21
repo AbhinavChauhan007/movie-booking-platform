@@ -11,40 +11,44 @@ public class BookingEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "booking_id")
     private Long bookingId;
 
-    @Column(nullable = false)
+    @Column(name = "booking_status", nullable = false)
     @Enumerated(EnumType.STRING)
     private BookingStatus bookingStatus;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @Version
+    @Column(name = "version", nullable = false)
     private Long version;
 
     public BookingEntity() {
-
+        // JPA only
     }
 
+    public BookingEntity(Long bookingId, BookingStatus bookingStatus, Instant createdAt) {
+        if (createdAt == null) {
+            throw new IllegalStateException("createdAt must be set by domain");
+        }
+        this.bookingId = bookingId;
+        this.bookingStatus = bookingStatus;
+        this.createdAt = createdAt;
+    }
 
     @PrePersist
     void onCreate() {
-        this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
 
     @PreUpdate
     void onUpdate() {
         this.updatedAt = Instant.now();
-    }
-
-    public BookingEntity(Long bookingId, BookingStatus bookingStatus) {
-        this.bookingId = bookingId;
-        this.bookingStatus = bookingStatus;
     }
 
     public Long getBookingId() {

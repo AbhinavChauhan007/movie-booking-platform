@@ -34,7 +34,7 @@ public class BookingPersistenceAdapterTest {
     @Test
     @DisplayName("Should save booking and assign ID if new")
     void shouldSaveAndAssignId() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
 
         BookingEntity bookingEntity = BookingMapper.toEntity(booking);
         bookingEntity.setBookingId(1L);
@@ -49,7 +49,7 @@ public class BookingPersistenceAdapterTest {
     @Test
     @DisplayName("Should throw BookingConcurrencyException on optimistic lock failure")
     void shouldThrowConcurrencyException() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.assignId(10L);
 
         when(bookingRepository.save(any()))

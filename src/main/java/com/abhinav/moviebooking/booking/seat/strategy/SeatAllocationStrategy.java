@@ -1,4 +1,4 @@
-package com.abhinav.moviebooking.booking.seat;
+package com.abhinav.moviebooking.booking.seat.strategy;
 
 import java.util.List;
 

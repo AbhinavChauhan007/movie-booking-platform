@@ -1,6 +1,6 @@
 package com.abhinav.moviebooking.booking.dto.request;
 
-import com.abhinav.moviebooking.booking.seat.SeatType;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

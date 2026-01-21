@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: movie-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: movie_booking
+      POSTGRES_USER: movie_user
+      POSTGRES_PASSWORD: movie_pass
+      TZ: Asia/Kolkata
+      PGTZ: Asia/Kolkata
+      # UPDATED: Explicitly setting the timezone flag at the engine level
+      command: postgres -c timezone=Asia/Kolkata

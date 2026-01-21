@@ -11,14 +11,17 @@ public final class BookingMapper {
     public static BookingEntity toEntity(Booking booking) {
         return new BookingEntity(
                 booking.getBookingId(),
-                booking.getBookingStatus()
+                booking.getBookingStatus(),
+                booking.getCreatedAt()
+
         );
     }
 
     public static Booking toDomain(BookingEntity bookingEntity) {
-        return new Booking(
+        return Booking.rehydrate(
                 bookingEntity.getBookingId(),
-                bookingEntity.getBookingStatus()
+                bookingEntity.getBookingStatus(),
+                bookingEntity.getCreatedAt()
         );
     }
 }

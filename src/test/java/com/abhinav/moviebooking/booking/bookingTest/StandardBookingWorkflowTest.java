@@ -1,11 +1,12 @@
 package com.abhinav.moviebooking.booking.bookingTest;
 
-
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategyFactory;
-import com.abhinav.moviebooking.booking.seat.SeatType;
+import com.abhinav.moviebooking.booking.payment.PaymentConfirmationService;
+import com.abhinav.moviebooking.booking.seat.service.SeatService;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
 import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
@@ -16,43 +17,47 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-public class StandardBookingWorkflowTest {
+class StandardBookingWorkflowTest {
 
-    private SeatAllocationStrategyFactory seatAllocationStrategyFactory;
-    private SeatAllocationStrategy seatAllocationStrategy;
+    private SeatService seatService;
     private PricingContext pricingContext;
     private PricingStrategy pricingStrategy;
     private BookingIdempotencyGuard bookingIdempotencyGuard;
+    private BookingCancellationService bookingCancellationService;
+    private PaymentConfirmationService paymentConfirmationService;
 
-    private StandardBookingWorkflow standardBookingWorkflow;
+    private StandardBookingWorkflow workflow;
 
     @BeforeEach
     void setup() {
-        seatAllocationStrategyFactory = mock(SeatAllocationStrategyFactory.class);
-        seatAllocationStrategy = mock(SeatAllocationStrategy.class);
-        pricingStrategy = mock(PricingStrategy.class);
+        seatService = mock(SeatService.class);
         pricingContext = mock(PricingContext.class);
+        pricingStrategy = mock(PricingStrategy.class);
         bookingIdempotencyGuard = mock(BookingIdempotencyGuard.class);
+        bookingCancellationService = mock(BookingCancellationService.class);
+        paymentConfirmationService = mock(PaymentConfirmationService.class);
 
+        when(seatService.allocateSeats(any(), anyInt(), any()))
+                .thenReturn(List.of("A1", "A2"));
 
-        when(seatAllocationStrategyFactory.getStrategy(any()))
-                .thenReturn(seatAllocationStrategy);
-
-        when(pricingContext.resolve(any()))
+        when(pricingContext.resolve(any(PricingRequest.class)))
                 .thenReturn(pricingStrategy);
 
-        when(pricingStrategy.calculatePrice(any(PricingRequest.class)))
+        when(pricingStrategy.calculatePrice(any()))
                 .thenReturn(500.0);
 
-        standardBookingWorkflow = new StandardBookingWorkflow(
-                seatAllocationStrategyFactory,
+        workflow = new StandardBookingWorkflow(
+                seatService,
                 pricingContext,
-                bookingIdempotencyGuard
+                bookingIdempotencyGuard,
+                bookingCancellationService,
+                paymentConfirmationService
         );
     }
 
@@ -61,21 +66,23 @@ public class StandardBookingWorkflowTest {
      * -------------------------------------------------- */
 
     @Test
-    @DisplayName("Booking should move CREATED → INITIATED → CONFIRMED")
-    void shouldExecuteFullWorkflowSuccessfully() {
-        Booking booking = new Booking();
-        BookingExecutionContext bookingExecutionContext = new BookingExecutionContext(10L, 2, SeatType.BEST_AVAILABLE);
-        booking.attachExecutionContext(bookingExecutionContext);
+    @DisplayName("Booking should complete successfully")
+    void shouldExecuteWorkflowSuccessfully() {
+        Booking booking = Booking.newBooking();
+        BookingExecutionContext ctx =
+                new BookingExecutionContext(10L, 2, SeatType.BEST_AVAILABLE);
 
-        standardBookingWorkflow.execute(booking, bookingExecutionContext);
+        booking.attachExecutionContext(ctx);
+
+        workflow.execute(booking, ctx);
 
         verify(bookingIdempotencyGuard).checkExecutable(booking);
-        verify(seatAllocationStrategy).allocateSeats(10L, 2);
-        verify(seatAllocationStrategyFactory).getStrategy(SeatType.BEST_AVAILABLE);
+        verify(seatService).allocateSeats(10L, 2, booking.getBookingId());
+        verify(pricingContext).resolve(any());
+        verify(paymentConfirmationService).confirmPayment(booking.getBookingId());
 
-        assertEquals(500.0, bookingExecutionContext.getFinalPrice());
+        assertEquals(500.0, ctx.getFinalPrice());
         assertEquals(BookingStatus.CONFIRMED, booking.getBookingStatus());
-
     }
 
     /* --------------------------------------------------
@@ -83,15 +90,19 @@ public class StandardBookingWorkflowTest {
      * -------------------------------------------------- */
 
     @Test
-    @DisplayName("Workflow should fail fast if validation fails")
     void shouldFailIfSeatCountInvalid() {
-        Booking booking = new Booking();
-        BookingExecutionContext context = new BookingExecutionContext(10L, -1, SeatType.BEST_AVAILABLE);
-        booking.attachExecutionContext(context);
+        Booking booking = Booking.newBooking();
+        BookingExecutionContext ctx =
+                new BookingExecutionContext(10L, -1, SeatType.BEST_AVAILABLE);
 
-        assertThrows(IllegalArgumentException.class, () -> standardBookingWorkflow.execute(booking, context));
-        verifyNoInteractions(pricingContext);
-        verifyNoInteractions(seatAllocationStrategy);
+        booking.attachExecutionContext(ctx);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> workflow.execute(booking, ctx)
+        );
+
+        verifyNoInteractions(seatService, pricingContext);
         assertEquals(BookingStatus.CREATED, booking.getBookingStatus());
     }
 
@@ -100,85 +111,46 @@ public class StandardBookingWorkflowTest {
      * -------------------------------------------------- */
 
     @Test
-    @DisplayName("Seat allocation failure should stop workflow")
-    void shouldStopWorkflowIfSeatAllocationFails() {
-        Booking booking = new Booking();
-        BookingExecutionContext context = new BookingExecutionContext(5L, 2, SeatType.BEST_AVAILABLE);
-        booking.attachExecutionContext(context);
-
-        doThrow(new RuntimeException("No Seats"))
-                .when(seatAllocationStrategy)
-                .allocateSeats(5L, 2);
-
-        assertThrows(RuntimeException.class,
-                () -> standardBookingWorkflow.execute(booking, context));
-
-        verify(seatAllocationStrategy).allocateSeats(5L, 2);
-        verifyNoInteractions(pricingContext);
-
-        assertEquals(BookingStatus.CREATED, booking.getBookingStatus());
-    }
-
-    /* --------------------------------------------------
-     * CANCEL FLOW
-     * -------------------------------------------------- */
-
-    @Test
-    @DisplayName("Cancel should release seats and mark booking CANCELLED")
-    void shouldCancelBookingAndReleaseSeats() {
-        Booking booking = new Booking();
-        BookingExecutionContext context = new BookingExecutionContext(7L, 3, SeatType.BEST_AVAILABLE);
-        booking.attachExecutionContext(context);
-        booking.transitionTo(BookingStatus.INITIATED);
-
-        standardBookingWorkflow.cancelBooking(booking);
-
-        verify(seatAllocationStrategy).releaseSeats(7L, 3);
-
-        assertEquals(BookingStatus.CANCELLED, booking.getBookingStatus());
-    }
-
-    /* --------------------------------------------------
-     * EXPIRE FLOW
-     * -------------------------------------------------- */
-
-    @Test
-    @DisplayName("Expire should release seats and mark booking EXPIRED")
-    void shouldExpireBooking() {
-        Booking booking = new Booking();
-        BookingExecutionContext context =
-                new BookingExecutionContext(8L, 1, SeatType.BEST_AVAILABLE);
-
-        booking.attachExecutionContext(context);
-        booking.transitionTo(BookingStatus.INITIATED);
-
-        standardBookingWorkflow.expireBooking(booking);
-
-        verify(seatAllocationStrategy)
-                .releaseSeats(8L, 1);
-
-        assertEquals(BookingStatus.EXPIRED, booking.getBookingStatus());
-    }
-
-    @Test
-    @DisplayName("Workflow should stop if idempotency guard blocks execution")
-    void shouldStopIfIdempotencyGuardFails() {
-        Booking booking = new Booking();
+    void shouldCompensateIfSeatAllocationFails() {
+        Booking booking = Booking.newBooking();
         BookingExecutionContext ctx =
-                new BookingExecutionContext(1L, 1, SeatType.BEST_AVAILABLE);
+                new BookingExecutionContext(5L, 2, SeatType.BEST_AVAILABLE);
+
         booking.attachExecutionContext(ctx);
 
-        doThrow(new IllegalArgumentException("Already processed"))
+        when(seatService.allocateSeats(any(), anyInt(), any()))
+                .thenThrow(new RuntimeException("No seats"));
+
+        assertThrows(
+                RuntimeException.class,
+                () -> workflow.execute(booking, ctx)
+        );
+
+        verify(bookingCancellationService)
+                .cancelBooking(booking.getBookingId(), BookingCancellationReason.SYSTEM_ERROR);
+    }
+
+    /* --------------------------------------------------
+     * IDEMPOTENCY FAILURE
+     * -------------------------------------------------- */
+
+    @Test
+    void shouldStopIfIdempotencyGuardFails() {
+        Booking booking = Booking.newBooking();
+        BookingExecutionContext ctx =
+                new BookingExecutionContext(1L, 1, SeatType.BEST_AVAILABLE);
+
+        booking.attachExecutionContext(ctx);
+
+        doThrow(new IllegalStateException("Duplicate"))
                 .when(bookingIdempotencyGuard)
                 .checkExecutable(booking);
 
         assertThrows(
-                IllegalArgumentException.class,
-                () -> standardBookingWorkflow.execute(booking, ctx)
+                IllegalStateException.class,
+                () -> workflow.execute(booking, ctx)
         );
 
-        verifyNoInteractions(seatAllocationStrategy);
-        verifyNoInteractions(pricingContext);
+        verifyNoInteractions(seatService, pricingContext);
     }
-
 }

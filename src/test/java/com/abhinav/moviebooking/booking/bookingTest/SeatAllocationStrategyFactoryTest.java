@@ -1,8 +1,8 @@
 package com.abhinav.moviebooking.booking.bookingTest;
 
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategyFactory;
-import com.abhinav.moviebooking.booking.seat.SeatType;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

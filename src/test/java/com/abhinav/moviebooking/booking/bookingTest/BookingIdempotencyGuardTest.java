@@ -19,7 +19,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldAllowExecutionForNonFinalBooking() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
 
         // should not throw exception
         assertDoesNotThrow(() -> guard.checkExecutable(booking));
@@ -30,7 +30,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldAllowExecutionForConfirmedBooking() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.transitionTo(BookingStatus.INITIATED);
         booking.transitionTo(BookingStatus.CONFIRMED);
 
@@ -39,7 +39,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldThrowIfBookingCancelled() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.transitionTo(BookingStatus.CANCELLED);
 
         IllegalArgumentException ex = assertThrows(
@@ -52,7 +52,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldThrowIfBookingExpired() {
-        Booking booking = new Booking();
+        Booking booking = Booking.newBooking();
         booking.transitionTo(BookingStatus.EXPIRED);
 
         IllegalArgumentException ex = assertThrows(

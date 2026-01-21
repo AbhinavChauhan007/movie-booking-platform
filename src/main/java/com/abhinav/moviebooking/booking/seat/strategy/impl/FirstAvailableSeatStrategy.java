@@ -1,7 +1,7 @@
-package com.abhinav.moviebooking.booking.seat.impl;
+package com.abhinav.moviebooking.booking.seat.strategy.impl;
 
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.SeatType;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
+import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

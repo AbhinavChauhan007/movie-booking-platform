@@ -2,28 +2,31 @@ package com.abhinav.moviebooking.booking.workflow;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.SeatAllocationStrategyFactory;
+import com.abhinav.moviebooking.booking.seat.service.SeatService;
 
 public abstract class BookingWorkflow {
 
-    protected final SeatAllocationStrategyFactory seatAllocationStrategyFactory;
+    protected final SeatService seatService;
 
-    protected BookingWorkflow(SeatAllocationStrategyFactory seatAllocationStrategyFactory) {
-        this.seatAllocationStrategyFactory = seatAllocationStrategyFactory;
+    protected BookingWorkflow(SeatService seatService) {
+        this.seatService = seatService;
     }
-
 
     // ==================================================
     // Template Method (Happy Path)
     // ==================================================
     public final void execute(Booking booking, BookingExecutionContext context) {
-        validate(booking, context);
-        allocateSeats(booking, context);
-        calculatePrice(booking, context);
-        initiatePayment(booking, context);
-        confirmBooking(booking, context);
-        notifyUser(booking, context);
+        try {
+            validate(booking, context);
+            allocateSeats(booking, context);
+            calculatePrice(booking, context);
+            initiatePayment(booking, context);
+            confirmBooking(booking, context);
+            notifyUser(booking, context);
+        } catch (Exception e) {
+            compensate(booking);
+            throw e;
+        }
     }
 
 
@@ -40,6 +43,10 @@ public abstract class BookingWorkflow {
     protected void notifyUser(Booking booking, BookingExecutionContext context) {
         // default behavior
 
+    }
+
+    protected void compensate(Booking booking) {
+        releaseSeatsIfAllocated(booking);
     }
 
     // ==================================================
@@ -71,17 +78,14 @@ public abstract class BookingWorkflow {
     protected void releaseSeatsIfAllocated(Booking booking) {
         BookingExecutionContext context = booking.getBookingExecutionContext();
 
-        if (context == null)  // booking never reached seat allocation
+        if (context == null || context.getAllocatedSeats() == null || context.getAllocatedSeats().isEmpty())  // booking never reached seat allocation
             return;
 
-        SeatAllocationStrategy strategy = seatAllocationStrategyFactory.getStrategy(context.getSeatType());
-
-        strategy.releaseSeats(context.getShowId(), context.getSeatCount());
-
-        System.out.println(
-                "Released " + context.getSeatCount() +
-                        " seats for booking " + booking.getBookingId()
+        seatService.releaseSeats(
+                context.getShowId(),
+                context.getAllocatedSeats()
         );
+
     }
 
 }
