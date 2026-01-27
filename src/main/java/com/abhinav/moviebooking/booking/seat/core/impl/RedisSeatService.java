@@ -1,6 +1,6 @@
-package com.abhinav.moviebooking.booking.seat.service.impl;
+package com.abhinav.moviebooking.booking.seat.core.impl;
 
-import com.abhinav.moviebooking.booking.seat.service.SeatService;
+import com.abhinav.moviebooking.booking.seat.core.SeatService;
 import com.abhinav.moviebooking.booking.exception.SeatUnavailableException;
 import org.springframework.stereotype.Service;
 import org.springframework.core.io.ClassPathResource;

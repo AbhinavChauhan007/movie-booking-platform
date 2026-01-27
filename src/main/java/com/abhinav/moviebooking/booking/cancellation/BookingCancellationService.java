@@ -5,7 +5,7 @@ import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.exception.BookingNotFoundException;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
-import com.abhinav.moviebooking.booking.seat.service.SeatService;
+import com.abhinav.moviebooking.booking.seat.core.SeatService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Component;
 

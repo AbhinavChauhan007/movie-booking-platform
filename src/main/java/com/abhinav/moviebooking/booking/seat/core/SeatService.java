@@ -1,4 +1,4 @@
-package com.abhinav.moviebooking.booking.seat.service;
+package com.abhinav.moviebooking.booking.seat.core;
 
 import java.util.List;
 
@@ -16,11 +16,6 @@ public interface SeatService {
      */
     void releaseSeats(Long showId, List<String> seatIds);
 
-//    boolean lockSeats(
-//            String bookingId,
-//            String showId,
-//            List<String> seatNumbers,
-//            long ttlSeconds
-//    );
+
 
 }

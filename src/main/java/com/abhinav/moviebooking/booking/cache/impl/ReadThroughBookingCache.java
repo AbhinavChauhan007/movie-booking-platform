@@ -3,8 +3,10 @@ package com.abhinav.moviebooking.booking.cache.impl;
 import com.abhinav.moviebooking.booking.cache.BookingCache;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,17 +18,24 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class ReadThroughBookingCache implements BookingCache {
 
-    private final BookingPersistenceAdapter bookingPersistenceAdapter;
-    private final Map<Long, Booking> cache = new ConcurrentHashMap<>();
+    private static final Duration TTL = Duration.ofHours(1);
 
-    public ReadThroughBookingCache(BookingPersistenceAdapter bookingPersistenceAdapter) {
+    private final BookingPersistenceAdapter bookingPersistenceAdapter;
+    private final RedisTemplate<String, Booking> redisTemplate;
+
+    public ReadThroughBookingCache(BookingPersistenceAdapter bookingPersistenceAdapter, RedisTemplate<String, Booking> redisTemplate) {
         this.bookingPersistenceAdapter = bookingPersistenceAdapter;
+        this.redisTemplate = redisTemplate;
+    }
+
+    private String key(Long bookingId) {
+        return "booking:" + bookingId;
     }
 
     @Override
     public Optional<Booking> get(Long bookingId) {
         // 1. Cache hit
-        Booking cachedBooking = cache.get(bookingId);
+        Booking cachedBooking = redisTemplate.opsForValue().get(key(bookingId));
         if (cachedBooking != null) {
             return Optional.of(cachedBooking);
         }
@@ -36,18 +45,18 @@ public class ReadThroughBookingCache implements BookingCache {
 
         // 3. rehydrate cache
         bookingFromDB.ifPresent(booking ->
-                cache.put(bookingId, booking)
+                redisTemplate.opsForValue().set(key(bookingId), booking, TTL)
         );
         return bookingFromDB;
     }
 
     @Override
     public void put(Booking booking) {
-        cache.put(booking.getBookingId(), booking);
+        redisTemplate.opsForValue().set(key(booking.getBookingId()), booking, TTL);
     }
 
     @Override
     public void evict(Long bookingId) {
-        cache.remove(bookingId);
+        redisTemplate.delete(key(bookingId));
     }
 }

@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package pricing;
+
+option java_multiple_files = true;
+option java_package = "com.abhinav.moviebooking.grpc.pricing";
+option java_outer_classname = "PricingServiceProto";
+
+service PricingService{
+  rpc CalculatePrice(PricingRequest) returns (PricingResponse);
+}
+
+message PricingRequest{
+  double basePrice = 1;
+  bool weekend = 2;
+  bool premiumUser = 3;
+  string idempotencyKey = 4;
+}
+
+message PricingResponse{
+  double finalPrice = 1;
+  string applicationStrategy = 2;
+
+}

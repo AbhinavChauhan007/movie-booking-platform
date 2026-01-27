@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package seat;
+
+option java_multiple_files = true;
+option java_package = "com.abhinav.moviebooking.grpc.seat";
+option java_outer_classname = "SeatServiceProto";
+
+service SeatService{
+  rpc allocateSeats(AllocateSeatsRequest) returns (AllocateSeatsResponse);
+  rpc releaseSeats(ReleaseSeatsRequest) returns (ReleaseSeatsResponse);
+}
+
+message AllocateSeatsRequest{
+  int64 showId = 1;
+  int32 seatCount = 2;
+  int64 bookingId = 3;
+  string idempotencyKey = 4;
+}
+
+message AllocateSeatsResponse{
+  repeated string seatNumbers = 1;
+}
+
+message ReleaseSeatsRequest{
+  int64 showId = 1;
+  repeated string seatNumbers = 2;
+  string idempotencyKey = 3;
+}
+
+message ReleaseSeatsResponse{
+  bool success = 1;
+}

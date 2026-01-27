@@ -1,12 +1,12 @@
-package com.abhinav.moviebooking.pricing.context;
+package com.abhinav.moviebooking.booking.pricing.context;
 
-public class PricingRequest {
+public class DomainPricingRequest {
 
     private final double basePrice;
     private final boolean isWeekend;
     private final boolean isPremium;
 
-    public PricingRequest(double basePrice, boolean isWeekend, boolean isPremium) {
+    public DomainPricingRequest(double basePrice, boolean isWeekend, boolean isPremium) {
         this.basePrice = basePrice;
         this.isWeekend = isWeekend;
         this.isPremium = isPremium;

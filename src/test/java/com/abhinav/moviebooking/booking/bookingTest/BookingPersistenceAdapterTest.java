@@ -5,7 +5,6 @@ import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.exception.BookingConcurrencyException;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
 import com.abhinav.moviebooking.booking.persistence.entity.BookingEntity;
-import com.abhinav.moviebooking.booking.persistence.mapper.BookingMapper;
 import com.abhinav.moviebooking.booking.persistence.repository.BookingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,9 +17,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-public class BookingPersistenceAdapterTest {
+class BookingPersistenceAdapterTest {
 
     private BookingRepository bookingRepository;
     private BookingPersistenceAdapter bookingPersistenceAdapter;
@@ -36,13 +36,19 @@ public class BookingPersistenceAdapterTest {
     void shouldSaveAndAssignId() {
         Booking booking = Booking.newBooking();
 
-        BookingEntity bookingEntity = BookingMapper.toEntity(booking);
-        bookingEntity.setBookingId(1L);
+        BookingEntity savedEntity = new BookingEntity(
+                1L,
+                BookingStatus.CREATED,
+                booking.getCreatedAt(),
+                booking.getCreatedAt()
+        );
 
-        when(bookingRepository.save(any(BookingEntity.class))).thenReturn(bookingEntity);
+        when(bookingRepository.save(any(BookingEntity.class)))
+                .thenReturn(savedEntity);
+
         Booking savedBooking = bookingPersistenceAdapter.save(booking);
 
-        assertEquals(1L,savedBooking.getBookingId());
+        assertEquals(1L, savedBooking.getBookingId());
         verify(bookingRepository).save(any(BookingEntity.class));
     }
 
@@ -64,18 +70,25 @@ public class BookingPersistenceAdapterTest {
     @Test
     @DisplayName("Should find booking by ID")
     void shouldFindById() {
-        BookingEntity entity = new BookingEntity();
-        entity.setBookingId(2L);
-        entity.setBookingStatus(BookingStatus.CONFIRMED);
+        Instant now = Instant.now();
+
+        BookingEntity entity = new BookingEntity(
+                2L,
+                BookingStatus.CONFIRMED,
+                now,
+                now
+        );
 
         when(bookingRepository.findById(2L))
                 .thenReturn(Optional.of(entity));
 
-        Optional<Booking> result = bookingPersistenceAdapter.findDomainById(2L);
+        Optional<Booking> result =
+                bookingPersistenceAdapter.findDomainById(2L);
 
         assertTrue(result.isPresent());
         assertEquals(2L, result.get().getBookingId());
         assertEquals(BookingStatus.CONFIRMED, result.get().getBookingStatus());
+        assertEquals(now, result.get().getCreatedAt());
     }
 
     @Test
@@ -84,7 +97,8 @@ public class BookingPersistenceAdapterTest {
         when(bookingRepository.findById(3L))
                 .thenReturn(Optional.empty());
 
-        Optional<Booking> result = bookingPersistenceAdapter.findDomainById(3L);
+        Optional<Booking> result =
+                bookingPersistenceAdapter.findDomainById(3L);
 
         assertTrue(result.isEmpty());
     }
@@ -92,8 +106,14 @@ public class BookingPersistenceAdapterTest {
     @Test
     @DisplayName("Should find expired initiated bookings")
     void shouldFindExpiredInitiatedBookings() {
-        BookingEntity entity = new BookingEntity();
-        entity.setBookingStatus(BookingStatus.INITIATED);
+        Instant createdAt = Instant.now().minusSeconds(3600);
+
+        BookingEntity entity = new BookingEntity(
+                5L,
+                BookingStatus.INITIATED,
+                createdAt,
+                createdAt
+        );
 
         when(bookingRepository.findExpiredInitiatedBookings(
                 eq(BookingStatus.INITIATED),
@@ -105,7 +125,6 @@ public class BookingPersistenceAdapterTest {
 
         assertEquals(1, result.size());
         assertEquals(BookingStatus.INITIATED, result.get(0).getBookingStatus());
+        assertEquals(createdAt, result.get(0).getCreatedAt());
     }
-
-
 }

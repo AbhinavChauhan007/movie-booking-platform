@@ -2,15 +2,10 @@ package com.abhinav.moviebooking.booking.workflow;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
-import com.abhinav.moviebooking.booking.seat.service.SeatService;
 
 public abstract class BookingWorkflow {
 
-    protected final SeatService seatService;
 
-    protected BookingWorkflow(SeatService seatService) {
-        this.seatService = seatService;
-    }
 
     // ==================================================
     // Template Method (Happy Path)
@@ -76,15 +71,7 @@ public abstract class BookingWorkflow {
      * Safe, idempotent, and lifecycle-aware.
      */
     protected void releaseSeatsIfAllocated(Booking booking) {
-        BookingExecutionContext context = booking.getBookingExecutionContext();
-
-        if (context == null || context.getAllocatedSeats() == null || context.getAllocatedSeats().isEmpty())  // booking never reached seat allocation
-            return;
-
-        seatService.releaseSeats(
-                context.getShowId(),
-                context.getAllocatedSeats()
-        );
+        // seat release must be handled by concrete workflow implementation
 
     }
 

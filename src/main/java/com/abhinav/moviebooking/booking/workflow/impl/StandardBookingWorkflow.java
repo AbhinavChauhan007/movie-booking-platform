@@ -5,16 +5,13 @@ import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.payment.PaymentConfirmationService;
-import com.abhinav.moviebooking.booking.persistence.adapter.SeatBookingPersistenceAdapter;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
-import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
-import com.abhinav.moviebooking.booking.seat.service.SeatService;
+import com.abhinav.moviebooking.booking.payment.PaymentInitiationService;
+import com.abhinav.moviebooking.booking.payment.PaymentResult;
+import com.abhinav.moviebooking.booking.pricing.client.PricingGrpcClient;
+import com.abhinav.moviebooking.booking.seat.client.SeatGrpcClient;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.BookingWorkflow;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
-import com.abhinav.moviebooking.pricing.context.PricingContext;
-import com.abhinav.moviebooking.pricing.context.PricingRequest;
-import com.abhinav.moviebooking.pricing.strategy.PricingStrategy;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -24,28 +21,34 @@ import java.util.List;
 @Component
 public class StandardBookingWorkflow extends BookingWorkflow {
 
-    private final PricingContext pricingContext;
+    private static final int MAX_PAYMENT_RETRIES = 2;
+
     private final BookingIdempotencyGuard bookingIdempotencyGuard;
     private final BookingCancellationService bookingCancellationService;
     private final PaymentConfirmationService paymentConfirmationService;
-
+    private final SeatGrpcClient seatGrpcClient;
+    private final PricingGrpcClient pricingGrpcClient;
+    private final PaymentInitiationService paymentInitiationService;
 
     public StandardBookingWorkflow(
-            SeatService seatService,
-            PricingContext pricingContext,
             BookingIdempotencyGuard bookingIdempotencyGuard,
             BookingCancellationService bookingCancellationService,
-            PaymentConfirmationService paymentConfirmationService) {
-        super(seatService);
-        this.pricingContext = pricingContext;
+            PaymentConfirmationService paymentConfirmationService,
+            SeatGrpcClient seatGrpcClient,
+            PricingGrpcClient pricingGrpcClient,
+            PaymentInitiationService paymentInitiationService) {
         this.bookingIdempotencyGuard = bookingIdempotencyGuard;
         this.bookingCancellationService = bookingCancellationService;
         this.paymentConfirmationService = paymentConfirmationService;
+        this.seatGrpcClient = seatGrpcClient;
+        this.pricingGrpcClient = pricingGrpcClient;
+        this.paymentInitiationService = paymentInitiationService;
     }
 
     // ==================================================
     // Workflow Steps (Template Method implementation)
     // ==================================================
+    // ================= VALIDATION =================
 
     @Override
     protected void validate(Booking booking, BookingExecutionContext context) {
@@ -61,62 +64,145 @@ public class StandardBookingWorkflow extends BookingWorkflow {
         System.out.println("Validating booking request for bookingId : " + booking.getBookingId());
     }
 
+    // ================= SEAT ALLOCATION =================
+
     @Override
     protected void allocateSeats(Booking booking, BookingExecutionContext context) {
-        // Redis executes atomic allocation
-        List<String> allocatedSeats = seatService.allocateSeats(
+
+        List<String> allocatedSeats = seatGrpcClient.allocateSeats(
+                booking.getBookingId(),
                 context.getShowId(),
-                context.getSeatCount(),
-                booking.getBookingId()
+                context.getSeatCount()
         );
+
         context.setAllocatedSeats(allocatedSeats);
         booking.transitionTo(BookingStatus.INITIATED);
+
         System.out.println(
                 "Booking " + booking.getBookingId() +
-                        " allocated seats " + allocatedSeats +
-                        " using strategy " + context.getSeatType()
+                        " allocated seats " + allocatedSeats
         );
     }
+
+    // ================= PRICING =================
 
     @Override
     protected void calculatePrice(Booking booking, BookingExecutionContext context) {
-        // delegate to PricingStrategy
-        double basePrice = context.getSeatCount() * 200; // temporary pricing value
-        PricingRequest pricingRequest = new PricingRequest(basePrice, isWeekend(), false // assume non - premium user for now
-        );
-        PricingStrategy pricingStrategy = pricingContext.resolve(pricingRequest);
 
-        context.setFinalPrice(pricingStrategy.calculatePrice(pricingRequest));
-        System.out.println("Final price for booking " + booking.getBookingId() + " is " + context.getFinalPrice());
+        double basePrice = context.getSeatCount() * 200;
+
+        double finalPrice = pricingGrpcClient.calculatePrice(
+                basePrice,
+                isWeekend(),
+                false
+        );
+
+        context.setFinalPrice(finalPrice);
+        System.out.println("Final price = " + finalPrice);
     }
+
+    // ================= PAYMENT =================
 
     @Override
     protected void initiatePayment(Booking booking, BookingExecutionContext context) {
-        // payment gateway
-        System.out.println("Initiating payment for booking " + booking.getBookingId() + " with amount " + context.getFinalPrice());
+
+        String idempotencyKey = booking.getBookingId() + ":PAYMENT";
+        int attempt = 0;
+
+        while (true) {
+
+            if (Thread.currentThread().isInterrupted()) {
+                throw new IllegalStateException("Thread interrupted during payment");
+            }
+
+            PaymentResult result = paymentInitiationService.initiatePayment(
+                    booking,
+                    context.getFinalPrice(),
+                    idempotencyKey
+            );
+
+            switch (result.getStatus()) {
+
+                case SUCCESS -> {
+                    System.out.println("Payment SUCCESS, txnId=" + result.getTransactionId());
+                    return;
+                }
+
+                case FAILED -> throw new IllegalStateException("Payment FAILED");
+
+                case TIMEOUT -> {
+                    attempt++;
+                    if (attempt > MAX_PAYMENT_RETRIES) {
+                        throw new IllegalStateException("Payment TIMEOUT after retries");
+                    }
+
+                    System.out.println("Payment TIMEOUT, retry " + attempt);
+                    sleepSafely(100L * attempt);
+                }
+            }
+        }
     }
+
+    // ================= CONFIRM =================
 
     @Override
     protected void confirmBooking(Booking booking, BookingExecutionContext context) {
         paymentConfirmationService.confirmPayment(booking.getBookingId());
+        booking.transitionTo(BookingStatus.CONFIRMED);
+
         System.out.println("Booking " + booking.getBookingId() + " CONFIRMED");
     }
 
+    // ================= COMPENSATION =================
+
     @Override
     protected void compensate(Booking booking) {
+
+        // 1️⃣ Release external resources FIRST
+        releaseSeatsIfAllocated(booking);
+
+        // 2️⃣ Then mark booking cancelled
         bookingCancellationService.cancelBooking(
                 booking.getBookingId(),
                 BookingCancellationReason.SYSTEM_ERROR
         );
     }
 
-    // ==================================================
-    // Helper methods
-    // ==================================================
+    @Override
+    protected void releaseSeatsIfAllocated(Booking booking) {
+
+        BookingExecutionContext context = booking.getBookingExecutionContext();
+
+        if (context == null ||
+                context.getAllocatedSeats() == null ||
+                context.getAllocatedSeats().isEmpty()) {
+            return;
+        }
+
+        seatGrpcClient.releaseSeats(
+                context.getShowId(),
+                context.getAllocatedSeats()
+        );
+
+        System.out.println(
+                "Released seats " + context.getAllocatedSeats() +
+                        " for booking " + booking.getBookingId()
+        );
+    }
+
+    // ================= HELPERS =================
 
     private boolean isWeekend() {
         DayOfWeek today = LocalDate.now().getDayOfWeek();
         return today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY;
     }
-}
 
+    private void sleepSafely(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Payment retry interrupted", e);
+        }
+    }
+}

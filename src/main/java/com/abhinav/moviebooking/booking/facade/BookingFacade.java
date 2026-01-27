@@ -25,7 +25,9 @@ public class BookingFacade {
 
     public BookingFacade(StandardBookingWorkflow standardBookingWorkflow,
                          BookingPersistenceAdapter bookingPersistenceAdapter,
-                         BookingReadService bookingReadService, BookingCache bookingCache, BookingIdempotencyRepository bookingIdempotencyRepository) {
+                         BookingReadService bookingReadService,
+                         BookingCache bookingCache,
+                         BookingIdempotencyRepository bookingIdempotencyRepository) {
         this.standardBookingWorkflow = standardBookingWorkflow;
         this.bookingPersistenceAdapter = bookingPersistenceAdapter;
         this.bookingReadService = bookingReadService;
@@ -34,45 +36,39 @@ public class BookingFacade {
     }
 
     /**
-     * Initiates a booking: creates Booking domain, creates ExecutionContext, and executes workflow.
+     * Initiates a booking in a safe, idempotent manner.
      */
     @Transactional
     public Booking initiateBooking(Long showId, int seatCount, SeatType seatType, String idempotencyKey) {
 
-        // check if this idempotency key already exists
-        BookingIdempotencyEntity existing = bookingIdempotencyRepository.
-                findById(idempotencyKey)
-                .orElse(null);
+        // --------------------------------------------------
+        // 1. Fast idempotency read path
+        // --------------------------------------------------
+        BookingIdempotencyEntity existing =
+                bookingIdempotencyRepository.findById(idempotencyKey).orElse(null);
 
         if (existing != null) {
             return bookingReadService.getBooking(existing.getBookingId());
         }
 
-        // Normal booking flow
-
-        // 1. Create Booking object
+        // --------------------------------------------------
+        // 2. Create & persist booking EARLY (ID required)
+        // --------------------------------------------------
         Booking booking = Booking.newBooking();
+        Booking persistedBooking = bookingPersistenceAdapter.save(booking);
 
-        // 2. Create request context (runtime data)
-        BookingExecutionContext context = new BookingExecutionContext(showId, seatCount, seatType);
-
-        // 3. attach context for future cancel / expiry
-        booking.attachExecutionContext(context);
-
-        // 4. execute workflow
-        standardBookingWorkflow.execute(booking, context);
-
-        // 5. write through
-        Booking savedBooking = bookingPersistenceAdapter.save(booking);
-
-        // save idempotency mapping
+        // --------------------------------------------------
+        // 3. Register idempotency BEFORE workflow execution
+        // --------------------------------------------------
         try {
-            bookingIdempotencyRepository.save(new BookingIdempotencyEntity(
-                    idempotencyKey,
-                    savedBooking.getBookingId()
-            ));
+            bookingIdempotencyRepository.save(
+                    new BookingIdempotencyEntity(
+                            idempotencyKey,
+                            persistedBooking.getBookingId()
+                    )
+            );
         } catch (DataIntegrityViolationException e) {
-            // Another request has already saved the key concurrently
+            // Another request won the race → return existing booking
             return bookingReadService.getBooking(
                     bookingIdempotencyRepository.findById(idempotencyKey)
                             .map(BookingIdempotencyEntity::getBookingId)
@@ -80,13 +76,30 @@ public class BookingFacade {
             );
         }
 
-        bookingCache.put(savedBooking);
+        // --------------------------------------------------
+        // 4. Attach runtime execution context
+        // --------------------------------------------------
+        BookingExecutionContext context =
+                new BookingExecutionContext(showId, seatCount, seatType);
 
-        return savedBooking;
+        persistedBooking.attachExecutionContext(context);
+
+        // --------------------------------------------------
+        // 5. Execute workflow (seat → price → payment → confirm)
+        // --------------------------------------------------
+        standardBookingWorkflow.execute(persistedBooking, context);
+
+        // --------------------------------------------------
+        // 6. Persist final state & cache
+        // --------------------------------------------------
+        Booking finalBooking = bookingPersistenceAdapter.save(persistedBooking);
+        bookingCache.put(finalBooking);
+
+        return finalBooking;
     }
 
     /**
-     * Cancel a booking
+     * Cancel booking
      */
     @Transactional
     public Booking cancelBooking(long bookingId) {
@@ -101,7 +114,7 @@ public class BookingFacade {
     }
 
     /**
-     * Expire a booking
+     * Expire booking
      */
     @Transactional
     public Booking expireBooking(long bookingId) {
@@ -121,6 +134,4 @@ public class BookingFacade {
     public BookingStatus getStatus(Long bookingId) {
         return bookingReadService.getBooking(bookingId).getBookingStatus();
     }
-
-
 }

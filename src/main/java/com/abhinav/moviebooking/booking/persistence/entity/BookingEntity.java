@@ -41,6 +41,22 @@ public class BookingEntity {
         this.createdAt = createdAt;
     }
 
+    public BookingEntity(Long bookingId,
+                         BookingStatus bookingStatus,
+                         Instant createdAt,
+                         Instant updatedAt) {
+
+        if (createdAt == null) {
+            throw new IllegalStateException("createdAt must not be null");
+        }
+
+        this.bookingId = bookingId;
+        this.bookingStatus = bookingStatus;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt != null ? updatedAt : createdAt;
+    }
+
+
     @PrePersist
     void onCreate() {
         this.updatedAt = this.createdAt;

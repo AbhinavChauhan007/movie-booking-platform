@@ -6,7 +6,7 @@ import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.exception.BookingNotFoundException;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
 import com.abhinav.moviebooking.booking.persistence.adapter.SeatBookingPersistenceAdapter;
-import com.abhinav.moviebooking.booking.seat.service.SeatService;
+import com.abhinav.moviebooking.booking.seat.core.SeatService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Component;
 
@@ -67,15 +67,6 @@ public class PaymentConfirmationService {
         // -----------------------------
         booking.transitionTo(BookingStatus.CONFIRMED);
         bookingPersistenceAdapter.save(booking);
-
-        // -----------------------------
-        // Redis cleanup
-        // (TTL already exists, but explicit cleanup is safe)
-        // -----------------------------
-        seatService.releaseSeats(
-                booking.getBookingExecutionContext().getShowId(),
-                booking.getBookingExecutionContext().getAllocatedSeats()
-        );
 
         // -----------------------------
         // Cache refresh
