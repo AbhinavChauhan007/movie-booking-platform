@@ -45,11 +45,12 @@ public class SeatGrpcClient {
      * Release seats on failure / timeout
      * * seat:{bookingId}:{operation} -> seat:12345:release
      */
-    public void releaseSeats(long showId, List<String> seats) {
+    public void releaseSeats(long showId, long bookingId, List<String> seats) {
         ReleaseSeatsRequest request = ReleaseSeatsRequest.newBuilder()
                 .setShowId(showId)
                 .addAllSeatNumbers(seats)
                 .setIdempotencyKey("seat:" + showId + ":release")
+                .setBookingId(bookingId)
                 .build();
 
         try {

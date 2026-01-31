@@ -16,6 +16,8 @@ public interface SeatService {
      */
     void releaseSeats(Long showId, List<String> seatIds);
 
+    void initializeSeats(Long showId, int totalSeats);
+
 
 
 }

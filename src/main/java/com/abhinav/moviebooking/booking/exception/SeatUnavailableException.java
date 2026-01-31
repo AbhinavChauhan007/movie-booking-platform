@@ -6,4 +6,5 @@ public class SeatUnavailableException extends RuntimeException {
         super("Not enough seats available for showId=" + showId +
                 ", requested=" + seatCount);
     }
+
 }

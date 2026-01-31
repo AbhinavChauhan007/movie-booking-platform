@@ -80,6 +80,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                System.out.println("JWT roles = " + roles);
             }
 
         } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
@@ -89,6 +90,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         System.out.println("alpha -> " + authentication.toString());
+
         filterChain.doFilter(request, response);
     }
 

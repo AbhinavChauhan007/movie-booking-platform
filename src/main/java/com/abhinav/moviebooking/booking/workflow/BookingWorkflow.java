@@ -45,24 +45,6 @@ public abstract class BookingWorkflow {
     }
 
     // ==================================================
-    // Compensation Actions (Rollback Paths)
-    // ==================================================
-
-    public void cancelBooking(Booking booking) {
-        releaseSeatsIfAllocated(booking);
-
-        booking.transitionTo(BookingStatus.CANCELLED);
-        System.out.println("Booking " + booking.getBookingId() + " has been cancelled");
-    }
-
-    public void expireBooking(Booking booking) {
-        releaseSeatsIfAllocated(booking);
-
-        booking.transitionTo(BookingStatus.EXPIRED);
-        System.out.println("Booking " + booking.getBookingId() + " has been expired");
-    }
-
-    // ==================================================
     // Internal Helper
     // ==================================================
 

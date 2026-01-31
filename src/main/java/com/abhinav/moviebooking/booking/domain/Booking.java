@@ -1,22 +1,29 @@
 package com.abhinav.moviebooking.booking.domain;
 
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
 import com.abhinav.moviebooking.booking.lifecycle.BookingLifecycle;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 
+import java.io.Serializable;
 import java.time.Instant;
 
-public class Booking {
+public class Booking implements Serializable {
 
     private Long bookingId;
     private BookingStatus bookingStatus;
     private Instant createdAt;
+    private BookingCancellationReason cancellationReason;
 
     private BookingExecutionContext bookingExecutionContext;
 
-    public Booking(Long bookingId, BookingStatus bookingStatus, Instant createdAt) {
+    public Booking() {
+    }
+
+    public Booking(Long bookingId, BookingStatus bookingStatus, Instant createdAt, BookingCancellationReason cancellationReason) {
         this.bookingId = bookingId;
         this.bookingStatus = bookingStatus;
         this.createdAt = createdAt;
+        this.cancellationReason = cancellationReason;
     }
 
     /**
@@ -26,18 +33,33 @@ public class Booking {
         return new Booking(
                 null,
                 BookingStatus.CREATED,
-                Instant.now()
+                Instant.now(),
+                null
         );
     }
 
     /**
      * Factory for rehydration from persistence
      */
-    public static Booking rehydrate(Long bookingId, BookingStatus status, Instant createdAt) {
+    public static Booking rehydrate(Long bookingId, BookingStatus status, Instant createdAt, BookingCancellationReason reason) {
         if (createdAt == null) {
             throw new IllegalStateException("createdAt cannot be null while rehydrating Booking");
         }
-        return new Booking(bookingId, status, createdAt);
+        return new Booking(bookingId, status, createdAt, reason);
+    }
+
+    // =====================
+    // Domain behavior
+    // =====================
+
+    public void cancel(BookingCancellationReason reason) {
+        if (bookingStatus.isFinal()) return;
+
+        this.cancellationReason = reason;
+        this.bookingStatus =
+                (reason == BookingCancellationReason.EXPIRED)
+                        ? BookingStatus.EXPIRED
+                        : BookingStatus.CANCELLED;
     }
 
     public void assignId(Long bookingId) {
@@ -62,6 +84,10 @@ public class Booking {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public BookingCancellationReason getCancellationReason() {
+        return cancellationReason;
     }
 
     public void transitionTo(BookingStatus targetStatus) {

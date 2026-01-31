@@ -6,13 +6,26 @@
 local seatCount = tonumber(ARGV[1])
 local ttl = tonumber(ARGV[2])
 
--- 1. Ensure availability set exists
-if redis.call("EXISTS", KEYS[1]) == 0 then
+-- 🔒 Defensive argument validation
+if not seatCount or seatCount <= 0 then
+    return { err = "INVALID_SEAT_COUNT" }
+end
+
+if not ttl or ttl <= 0 then
+    return { err = "INVALID_TTL" }
+end
+
+-- 1. Check if the key exists and is a set
+local typeInfo = redis.call("TYPE", KEYS[1])
+local keyType = typeInfo["ok"] or typeInfo
+
+if keyType ~= "set" then
     return { err = "SEATS_NOT_INITIALIZED" }
 end
 
--- 2. Check availability
-local available = redis.call("SCARD", KEYS[1])
+-- 2. Get available count
+local available = tonumber(redis.call("SCARD", KEYS[1]) or 0)
+
 if available < seatCount then
     return { err = "INSUFFICIENT_SEATS" }
 end
@@ -20,18 +33,22 @@ end
 -- 3. Pop seats
 local seats = redis.call("SPOP", KEYS[1], seatCount)
 
--- Normalize return type (important!)
-if type(seats) ~= "table" then
-    seats = { seats }
+-- 4. Validate pop result
+if not seats or #seats < seatCount then
+    if seats and #seats > 0 then
+        for _, s in ipairs(seats) do
+            redis.call("SADD", KEYS[1], s)
+        end
+    end
+    return { err = "INSUFFICIENT_SEATS" }
 end
 
--- 4. Lock seats
+-- 5. Lock seats
 for _, seat in ipairs(seats) do
     redis.call("SADD", KEYS[2], seat)
 end
 
--- 5. Set TTL
+-- 6. Set TTL
 redis.call("EXPIRE", KEYS[2], ttl)
 
--- 6. Return locked seats
 return seats

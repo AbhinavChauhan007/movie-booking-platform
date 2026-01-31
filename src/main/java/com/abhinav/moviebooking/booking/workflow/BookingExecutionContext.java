@@ -2,16 +2,20 @@ package com.abhinav.moviebooking.booking.workflow;
 
 import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class BookingExecutionContext {
+public class BookingExecutionContext implements Serializable {
 
-    private final Long showId;
-    private final int seatCount;
-    private final SeatType seatType;
+    private Long showId;
+    private int seatCount;
+    private SeatType seatType;
     private double finalPrice;
 
     private List<String> allocatedSeats;
+
+    public BookingExecutionContext() {
+    }
 
     public BookingExecutionContext(Long showId, int seatCount, SeatType seatType) {
         this.showId = showId;

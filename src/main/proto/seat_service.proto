@@ -26,6 +26,7 @@ message ReleaseSeatsRequest{
   int64 showId = 1;
   repeated string seatNumbers = 2;
   string idempotencyKey = 3;
+  int64 bookingId = 4;
 }
 
 message ReleaseSeatsResponse{

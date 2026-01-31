@@ -1,6 +1,8 @@
 package com.abhinav.moviebooking.booking.facade;
 
 import com.abhinav.moviebooking.booking.cache.BookingCache;
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
@@ -10,9 +12,9 @@ import com.abhinav.moviebooking.booking.read.BookingReadService;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
-import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class BookingFacade {
@@ -22,17 +24,19 @@ public class BookingFacade {
     private final BookingReadService bookingReadService;
     private final BookingCache bookingCache;
     private final BookingIdempotencyRepository bookingIdempotencyRepository;
+    private final BookingCancellationService bookingCancellationService;
 
     public BookingFacade(StandardBookingWorkflow standardBookingWorkflow,
                          BookingPersistenceAdapter bookingPersistenceAdapter,
                          BookingReadService bookingReadService,
                          BookingCache bookingCache,
-                         BookingIdempotencyRepository bookingIdempotencyRepository) {
+                         BookingIdempotencyRepository bookingIdempotencyRepository, BookingCancellationService bookingCancellationService) {
         this.standardBookingWorkflow = standardBookingWorkflow;
         this.bookingPersistenceAdapter = bookingPersistenceAdapter;
         this.bookingReadService = bookingReadService;
         this.bookingCache = bookingCache;
         this.bookingIdempotencyRepository = bookingIdempotencyRepository;
+        this.bookingCancellationService = bookingCancellationService;
     }
 
     /**
@@ -48,6 +52,7 @@ public class BookingFacade {
                 bookingIdempotencyRepository.findById(idempotencyKey).orElse(null);
 
         if (existing != null) {
+            System.out.println("booking already confirmed");
             return bookingReadService.getBooking(existing.getBookingId());
         }
 
@@ -103,14 +108,8 @@ public class BookingFacade {
      */
     @Transactional
     public Booking cancelBooking(long bookingId) {
-        Booking booking = bookingReadService.getBooking(bookingId);
-
-        standardBookingWorkflow.cancelBooking(booking);
-
-        Booking savedBooking = bookingPersistenceAdapter.save(booking);
-        bookingCache.put(savedBooking);
-
-        return savedBooking;
+        bookingCancellationService.cancelBooking(bookingId, BookingCancellationReason.USER_CANCELLED);
+        return bookingReadService.getBooking(bookingId);
     }
 
     /**
@@ -118,14 +117,8 @@ public class BookingFacade {
      */
     @Transactional
     public Booking expireBooking(long bookingId) {
-        Booking booking = bookingReadService.getBooking(bookingId);
-
-        standardBookingWorkflow.expireBooking(booking);
-
-        Booking savedBooking = bookingPersistenceAdapter.save(booking);
-        bookingCache.put(savedBooking);
-
-        return savedBooking;
+        bookingCancellationService.cancelBooking(bookingId, BookingCancellationReason.EXPIRED);
+        return bookingReadService.getBooking(bookingId);
     }
 
     /**

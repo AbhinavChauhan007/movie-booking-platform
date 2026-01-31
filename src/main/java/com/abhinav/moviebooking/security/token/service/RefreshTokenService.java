@@ -22,17 +22,20 @@ public class RefreshTokenService {
         this.refreshTokenRepository = refreshTokenRepository;
     }
 
-    public RefreshToken createRefreshToken(String username) {
+    public RefreshToken createRefreshToken(String username, Set<String> roles) {
         String token = UUID.randomUUID().toString();
+
         RefreshToken refreshToken = new RefreshToken(
                 token,
                 username,
                 Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRY),
-                Set.of("ROLE_USER"), // will change it later
+                roles, // ✅ dynamic, not hard-coded
                 false
         );
+
         return refreshTokenRepository.save(refreshToken);
     }
+
 
     public RefreshToken validateRefreshToken(String token) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(token)

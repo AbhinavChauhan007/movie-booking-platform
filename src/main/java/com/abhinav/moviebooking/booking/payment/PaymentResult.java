@@ -1,6 +1,8 @@
 package com.abhinav.moviebooking.booking.payment;
 
-public class PaymentResult {
+import java.io.Serializable;
+
+public class PaymentResult implements Serializable {
 
     private final PaymentStatus status;
     private final String transactionId;

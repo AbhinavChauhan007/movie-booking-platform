@@ -1,7 +1,8 @@
 package com.abhinav.moviebooking.booking.seat.grpc;
 
+import com.abhinav.moviebooking.booking.exception.BookingNotFoundException;
 import com.abhinav.moviebooking.booking.exception.SeatUnavailableException;
-import com.abhinav.moviebooking.booking.seat.core.SeatService;
+import com.abhinav.moviebooking.booking.seat.core.impl.RedisSeatService;
 import com.abhinav.moviebooking.grpc.seat.*;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -14,73 +15,103 @@ import java.util.concurrent.TimeUnit;
 @GrpcService
 public class SeatGrpcService extends SeatServiceGrpc.SeatServiceImplBase {
 
-    private final SeatService seatService;
+    private final RedisSeatService redisSeatService;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public SeatGrpcService(SeatService seatService, RedisTemplate<String, Object> redisTemplate) {
-        this.seatService = seatService;
+    public SeatGrpcService(RedisSeatService redisSeatService, RedisTemplate<String, Object> redisTemplate) {
+        this.redisSeatService = redisSeatService;
         this.redisTemplate = redisTemplate;
     }
 
     @Override
-    public void allocateSeats(AllocateSeatsRequest request, StreamObserver<AllocateSeatsResponse> responseObserver) {
+    public void allocateSeats(AllocateSeatsRequest request,
+                              StreamObserver<AllocateSeatsResponse> responseObserver) {
 
         String idemKey = "idempotency:" + request.getIdempotencyKey();
 
-        // check if the request has already been processed
-        AllocateSeatsResponse cached = (AllocateSeatsResponse) redisTemplate.opsForValue().get(idemKey);
-
-        if (cached != null) {
-            responseObserver.onNext(cached);
-            responseObserver.onCompleted();
-            return;
-        }
-
         try {
-            List<String> seats = seatService.allocateSeats(
+            // ---- idempotency check
+            @SuppressWarnings("unchecked")
+            List<String> cachedSeats =
+                    (List<String>) redisTemplate.opsForValue().get(idemKey);
+
+            if (cachedSeats != null) {
+                responseObserver.onNext(
+                        AllocateSeatsResponse.newBuilder()
+                                .addAllSeatNumbers(cachedSeats)
+                                .build()
+                );
+                responseObserver.onCompleted();
+                return;
+            }
+
+            // ---- domain call
+            List<String> allocatedSeats = redisSeatService.allocateSeats(
                     request.getShowId(),
                     request.getSeatCount(),
                     request.getBookingId()
             );
 
-            AllocateSeatsResponse response = AllocateSeatsResponse.newBuilder()
-                    .addAllSeatNumbers(seats)
-                    .build();
+            // ---- cache domain data only
+            redisTemplate.opsForValue().set(
+                    idemKey,
+                    allocatedSeats,
+                    10,
+                    TimeUnit.MINUTES
+            );
 
-            // store response in cached
-            redisTemplate.opsForValue().set(idemKey, response, 10, TimeUnit.MINUTES);
-
-            responseObserver.onNext(response);
+            responseObserver.onNext(
+                    AllocateSeatsResponse.newBuilder()
+                            .addAllSeatNumbers(allocatedSeats)
+                            .build()
+            );
             responseObserver.onCompleted();
+
         } catch (SeatUnavailableException ex) {
             responseObserver.onError(
-                    io.grpc.Status.FAILED_PRECONDITION
-                            .withDescription(ex.getMessage())
-                            .asRuntimeException()
+                    Status.FAILED_PRECONDITION.withDescription(ex.getMessage()).asRuntimeException()
+            );
+        } catch (BookingNotFoundException ex) {
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription(ex.getMessage()).asRuntimeException()
+            );
+        } catch (Exception ex) {
+            ex.printStackTrace(); // TEMP: remove later
+            responseObserver.onError(
+                    Status.INTERNAL.withDescription("Seat service crashed").asRuntimeException()
             );
         }
     }
+
 
     @Override
     public void releaseSeats(ReleaseSeatsRequest request, StreamObserver<ReleaseSeatsResponse> responseObserver) {
         String idemKey = "idempotency:" + request.getIdempotencyKey();
 
+        // -----------------------------
         // Check if already released
+        // -----------------------------
         Boolean alreadyReleased = redisTemplate.hasKey(idemKey);
-        if (alreadyReleased) {
+        if (alreadyReleased != null && alreadyReleased) {
             responseObserver.onNext(
                     ReleaseSeatsResponse.newBuilder().setSuccess(true).build()
             );
             responseObserver.onCompleted();
             return;
         }
+
         try {
-            seatService.releaseSeats(
-                    request.getShowId(),
+            // -----------------------------
+            // Release seats via SeatBookingService
+            // -----------------------------
+            redisSeatService.releaseSeats(
+                    request.getBookingId(), // Optional: can also release by showId + seatNumbers if needed
                     request.getSeatNumbersList()
             );
 
-            // mark as released (no need to store payload)
+            // -----------------------------
+            // Mark as released for idempotency
+            // -----------------------------
             redisTemplate.opsForValue().set(idemKey, true, 10, TimeUnit.MINUTES);
 
             responseObserver.onNext(

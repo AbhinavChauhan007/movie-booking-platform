@@ -13,65 +13,47 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentConfirmationService {
 
-    private final BookingPersistenceAdapter bookingPersistenceAdapter;
     private final SeatBookingPersistenceAdapter seatBookingPersistenceAdapter;
-    private final SeatService seatService;
     private final BookingCache bookingCache;
 
     public PaymentConfirmationService(
-            BookingPersistenceAdapter bookingPersistenceAdapter,
             SeatBookingPersistenceAdapter seatBookingPersistenceAdapter,
-            SeatService seatService,
             BookingCache bookingCache) {
-        this.bookingPersistenceAdapter = bookingPersistenceAdapter;
         this.seatBookingPersistenceAdapter = seatBookingPersistenceAdapter;
-        this.seatService = seatService;
         this.bookingCache = bookingCache;
     }
 
     /**
-     * Finalizes booking after successful payment.
-     * Fully idempotent.
+     * Finalizes booking using the in-memory object.
      */
     @Transactional
-    public void confirmPayment(Long bookingId) {
-        Booking booking = bookingPersistenceAdapter.findDomainById(bookingId)
-                .orElseThrow(
-                        () -> new BookingNotFoundException(bookingId)
-                );
-
-        // -----------------------------
-        // Idempotency guard
-        // -----------------------------
+    public void confirmPayment(Booking booking) {
+        // 1. Idempotency guard using the object's current state
         if (booking.getBookingStatus() == BookingStatus.CONFIRMED) {
             return;
         }
 
+        // Now this check will PASS because the workflow updated the memory state to INITIATED
         if (booking.getBookingStatus() != BookingStatus.INITIATED) {
             throw new IllegalStateException(
                     "Cannot confirm payment for booking in state: " + booking.getBookingStatus()
             );
         }
 
-        // -----------------------------
-        // Persist seat bookings
-        // -----------------------------
+        // 2. Persist seat bookings (SQL join table)
         seatBookingPersistenceAdapter.saveSeats(
-                bookingId,
+                booking.getBookingId(),
                 booking.getBookingExecutionContext().getShowId(),
                 booking.getBookingExecutionContext().getAllocatedSeats()
         );
 
-        // -----------------------------
-        // State transition
-        // -----------------------------
+        // 3. State transition in memory
         booking.transitionTo(BookingStatus.CONFIRMED);
-        bookingPersistenceAdapter.save(booking);
 
-        // -----------------------------
-        // Cache refresh
-        // -----------------------------
+        // NOTE: We do NOT call bookingPersistenceAdapter.save(booking) here.
+        // The BookingFacade will handle the final save for the entire transaction.
+
+        // 4. Update Cache (Optional here, or move to Facade)
         bookingCache.put(booking);
     }
 }
-

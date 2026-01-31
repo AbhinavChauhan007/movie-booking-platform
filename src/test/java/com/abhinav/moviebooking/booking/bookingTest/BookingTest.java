@@ -31,7 +31,7 @@ public class BookingTest {
     @Test
     @DisplayName("Booking constructed with status should preserve state")
     void bookingWithProvidedStatusShouldPreserveState() {
-        Booking booking = new Booking(1L, BookingStatus.INITIATED, Instant.now());
+        Booking booking = new Booking(1L, BookingStatus.INITIATED, Instant.now(),null);
         assertEquals(BookingStatus.INITIATED, booking.getBookingStatus());
     }
 
@@ -88,7 +88,7 @@ public class BookingTest {
     @MethodSource("validTransitions")
     @DisplayName("Booking should allow valid transitions")
     void shouldAllowValidTransitions(BookingStatus from, BookingStatus to) {
-        Booking booking = new Booking(1L, from, Instant.now());
+        Booking booking = new Booking(1L, from, Instant.now(),null);
 
         booking.transitionTo(to);
 
@@ -123,7 +123,7 @@ public class BookingTest {
     @MethodSource("invalidTransitions")
     @DisplayName("Booking should reject invalid transitions")
     void shouldRejectInvalidTransitions(BookingStatus from, BookingStatus to) {
-        Booking booking = new Booking(1L, from, Instant.now());
+        Booking booking = new Booking(1L, from, Instant.now(),null);
 
         assertThrows(IllegalArgumentException.class, () ->
                 booking.transitionTo(to)

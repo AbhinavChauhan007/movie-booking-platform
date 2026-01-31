@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
@@ -58,7 +60,13 @@ public class AuthController {
         String accessToken = jwtUtil.generateToken(authentication);
 
         // generate refresh token
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(authRequest.getEmail());
+        Set<String> roles = authentication.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+
+        RefreshToken refreshToken =
+                refreshTokenService.createRefreshToken(authRequest.getEmail(), roles);
 
         return ResponseEntity.ok().body(new AuthResponse(accessToken, refreshToken.getToken()));
     }
@@ -75,7 +83,7 @@ public class AuthController {
         }
 
 
-        try{
+        try {
             // 2. Validate token (this MUST verify signature + expiry)
             String accessToken = authHeader.substring(7);
             long expiry = jwtUtil.extractExpiration(accessToken);
@@ -86,14 +94,12 @@ public class AuthController {
             // 3. clear security context
             SecurityContextHolder.clearContext();
 
-            return  ResponseEntity.ok().body("Logged out successfully");
-        }
-        catch (ExpiredJwtException e){
+            return ResponseEntity.ok().body("Logged out successfully");
+        } catch (ExpiredJwtException e) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body("Expired JWT Token");
-        }
-        catch (JwtException e){
+        } catch (JwtException e) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body("Invalid JWT Token");
@@ -102,29 +108,33 @@ public class AuthController {
 
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest, HttpServletRequest request) {
+    public ResponseEntity<AuthResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
 
         String refreshTokenValue = refreshTokenRequest.getRefreshToken();
 
-        // 1. Validate refresh token (DB lookup)
-        RefreshToken refreshToken = refreshTokenService.validateRefreshToken(refreshTokenValue);
+        // 1. Validate refresh token (DB lookup + expiry + revoked check)
+        RefreshToken refreshToken =
+                refreshTokenService.validateRefreshToken(refreshTokenValue);
 
-        // 2. Rotate refresh token
+        // 2. Rotate (revoke old + issue new refresh token WITH SAME ROLES)
         refreshTokenService.revokeToken(refreshToken);
 
         RefreshToken newRefreshToken =
-                refreshTokenService.createRefreshToken(refreshToken.getUsername());
+                refreshTokenService.createRefreshToken(
+                        refreshToken.getUsername(),
+                        refreshToken.getRoles()
+                );
 
-        // 3. Issue new ACCESS TOKEN (JWT)
+        // 3. Issue new ACCESS TOKEN using ROLES FROM REFRESH TOKEN
         String newAccessToken = jwtUtil.generateToken(
                 refreshToken.getUsername(),
-                refreshToken.getRoles() != null ? refreshToken.getRoles() : Set.of("USER")
+                refreshToken.getRoles()
         );
 
         return ResponseEntity.ok(
                 new AuthResponse(newAccessToken, newRefreshToken.getToken())
         );
-
-
     }
+
 }

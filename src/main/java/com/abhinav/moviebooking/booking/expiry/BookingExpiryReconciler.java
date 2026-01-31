@@ -18,41 +18,35 @@ public class BookingExpiryReconciler {
     private static final Duration BOOKING_EXPIRY_DURATION = Duration.ofMinutes(10);
 
     private final BookingPersistenceAdapter bookingPersistenceAdapter;
-    private final SeatService seatService;
     private final BookingCancellationService bookingCancellationService;
 
-    public BookingExpiryReconciler(BookingPersistenceAdapter bookingPersistenceAdapter, SeatService seatService, BookingCancellationService bookingCancellationService) {
+    public BookingExpiryReconciler(BookingPersistenceAdapter bookingPersistenceAdapter, BookingCancellationService bookingCancellationService) {
         this.bookingPersistenceAdapter = bookingPersistenceAdapter;
-        this.seatService = seatService;
+
         this.bookingCancellationService = bookingCancellationService;
     }
 
     public void reconcileExpiredBookings() {
         Instant expiryThreshold = Instant.now().minus(BOOKING_EXPIRY_DURATION);
+        int maxBatches = 10; // Production safety limit per run
 
-        List<Booking> expiredBookings =
-                bookingPersistenceAdapter.findExpiredInitiatedBookings(expiryThreshold);
+        for (int i = 0; i < maxBatches; i++) {
+            List<Long> expiredBookings =
+                    bookingPersistenceAdapter.findExpiredInitiatedBookings(expiryThreshold, 50);
 
-        for (Booking booking : expiredBookings)
-            expireBookingSafely(booking);
+            if (expiredBookings.isEmpty()) break;
 
+            for (Long bookingId : expiredBookings) {
+                expireBookingSafely(bookingId);
+            }
+        }
     }
 
-    private void expireBookingSafely(Booking booking) {
-        // Idempotency guard
-        if (booking.getBookingStatus() != BookingStatus.INITIATED)
-            return;
 
-        // Release Redis-locked seats (safe even if TTL already expired)
-        if (booking.getBookingExecutionContext() != null && booking.getBookingExecutionContext().getAllocatedSeats() != null) {
-            seatService.releaseSeats(
-                    booking.getBookingExecutionContext().getShowId(),
-                    booking.getBookingExecutionContext().getAllocatedSeats()
-            );
-        }
+    public void expireBookingSafely(Long bookingId) {
 
         bookingCancellationService.cancelBooking(
-                booking.getBookingId(),
+                bookingId,
                 BookingCancellationReason.EXPIRED
         );
 

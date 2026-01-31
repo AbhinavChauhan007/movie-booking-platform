@@ -1,5 +1,6 @@
 package com.abhinav.moviebooking.booking.persistence.entity;
 
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import jakarta.persistence.*;
 
@@ -27,6 +28,10 @@ public class BookingEntity {
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancellation_reason")
+    private BookingCancellationReason cancellationReason;
 
     public BookingEntity() {
         // JPA only
@@ -90,4 +95,13 @@ public class BookingEntity {
     public Instant getUpdatedAt() {
         return updatedAt;
     }
+
+    public BookingCancellationReason getCancellationReason() {
+        return cancellationReason;
+    }
+
+    public void setCancellationReason(BookingCancellationReason cancellationReason) {
+        this.cancellationReason = cancellationReason;
+    }
+
 }

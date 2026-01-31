@@ -12,9 +12,12 @@ import com.abhinav.moviebooking.booking.seat.client.SeatGrpcClient;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.BookingWorkflow;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
+import com.abhinav.moviebooking.show.entity.Show;
+import com.abhinav.moviebooking.show.repository.ShowRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,6 +32,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
     private final SeatGrpcClient seatGrpcClient;
     private final PricingGrpcClient pricingGrpcClient;
     private final PaymentInitiationService paymentInitiationService;
+    private final ShowRepository showRepository;
 
     public StandardBookingWorkflow(
             BookingIdempotencyGuard bookingIdempotencyGuard,
@@ -36,13 +40,14 @@ public class StandardBookingWorkflow extends BookingWorkflow {
             PaymentConfirmationService paymentConfirmationService,
             SeatGrpcClient seatGrpcClient,
             PricingGrpcClient pricingGrpcClient,
-            PaymentInitiationService paymentInitiationService) {
+            PaymentInitiationService paymentInitiationService, ShowRepository showRepository) {
         this.bookingIdempotencyGuard = bookingIdempotencyGuard;
         this.bookingCancellationService = bookingCancellationService;
         this.paymentConfirmationService = paymentConfirmationService;
         this.seatGrpcClient = seatGrpcClient;
         this.pricingGrpcClient = pricingGrpcClient;
         this.paymentInitiationService = paymentInitiationService;
+        this.showRepository = showRepository;
     }
 
     // ==================================================
@@ -61,6 +66,13 @@ public class StandardBookingWorkflow extends BookingWorkflow {
         if (booking.getBookingStatus().isFinal())
             throw new IllegalArgumentException("Booking is already in final state");
 
+        Show show = showRepository.findById(context.getShowId())
+                .orElseThrow(() -> new IllegalArgumentException("Show not found"));
+
+        if (show.getStartTime().isBefore(Instant.now())) {
+            throw new IllegalStateException("Cannot book past shows");
+        }
+
         System.out.println("Validating booking request for bookingId : " + booking.getBookingId());
     }
 
@@ -74,6 +86,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
                 context.getShowId(),
                 context.getSeatCount()
         );
+
 
         context.setAllocatedSeats(allocatedSeats);
         booking.transitionTo(BookingStatus.INITIATED);
@@ -147,8 +160,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
     @Override
     protected void confirmBooking(Booking booking, BookingExecutionContext context) {
-        paymentConfirmationService.confirmPayment(booking.getBookingId());
-        booking.transitionTo(BookingStatus.CONFIRMED);
+        paymentConfirmationService.confirmPayment(booking);
 
         System.out.println("Booking " + booking.getBookingId() + " CONFIRMED");
     }
@@ -181,6 +193,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
         seatGrpcClient.releaseSeats(
                 context.getShowId(),
+                booking.getBookingId(),
                 context.getAllocatedSeats()
         );
 
