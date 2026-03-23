@@ -12,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -25,18 +26,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final TokenBlackListService blackListService;
+    private final CustomUserDetailsService userDetailsService;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, TokenBlackListService blackListService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, TokenBlackListService blackListService, CustomUserDetailsService userDetailsService) {
         this.jwtUtil = jwtUtil;
         this.blackListService = blackListService;
+        this.userDetailsService = userDetailsService;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getServletPath().equals("/auth/login")
-                || request.getServletPath().equals("/auth/logout")
-                || request.getServletPath().equals("/auth/refresh")
-                || request.getServletPath().startsWith("/h2-console");
+        String path = request.getServletPath();
+
+        return path.equals("/auth/login")
+                || path.equals("/auth/logout")
+                || path.equals("/auth/refresh")
+                || path.startsWith("/h2-console")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/swagger-resources")
+                || path.startsWith("/webjars");
     }
 
     @Override
@@ -44,6 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
+
+        System.out.println("🔐 JwtAuthenticationFilter - Path: " + request.getServletPath());
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             System.out.println("No token present");
@@ -55,32 +66,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 1. Check blacklist
         if (blackListService.isBlackListed(jwtToken)) {
+            System.out.println("❌ Token is blacklisted");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         try {
             String username = jwtUtil.extractUsername(jwtToken);
+            System.out.println("📧 Username from token: " + username);
 
-            if (username != null &&
-                    SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                Set<String> roles = jwtUtil.extractRoles(jwtToken);
+                // ✅ LOAD FULL USER DETAILS (including userId)
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                System.out.println("👤 Loaded CustomUserDetails for: " + username);
 
-                List<SimpleGrantedAuthority> authorities = roles.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList();
+//                Set<String> roles = jwtUtil.extractRoles(jwtToken);
+//
+//                List<SimpleGrantedAuthority> authorities = roles.stream()
+//                        .map(SimpleGrantedAuthority::new)
+//                        .toList();
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                username, null, authorities);
+                                userDetails, null, userDetails.getAuthorities());
 
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                System.out.println("JWT roles = " + roles);
+                System.out.println("✅ Authentication set successfully");
             }
 
         } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {

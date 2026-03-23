@@ -16,7 +16,6 @@ public class CustomUserDetails implements UserDetails {
         this.user = user;
     }
 
-
     // Permissions
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -24,6 +23,14 @@ public class CustomUserDetails implements UserDetails {
                 .stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
                 .collect(Collectors.toSet());
+    }
+
+    public Long getUserId() {
+        return user.getId();
+    }
+
+    public String getEmail() {
+        return user.getEmail();
     }
 
     // Credentials

@@ -12,6 +12,12 @@ import com.abhinav.moviebooking.booking.seat.client.SeatGrpcClient;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.BookingWorkflow;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
+import com.abhinav.moviebooking.event.BookingCancelledEvent;
+import com.abhinav.moviebooking.event.BookingConfirmedEvent;
+import com.abhinav.moviebooking.event.service.EventPublisher;
+import com.abhinav.moviebooking.movie.dto.response.MovieResponseDTO;
+import com.abhinav.moviebooking.movie.entity.Movie;
+import com.abhinav.moviebooking.movie.repository.MovieRepository;
 import com.abhinav.moviebooking.show.entity.Show;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
 import org.springframework.stereotype.Component;
@@ -33,6 +39,8 @@ public class StandardBookingWorkflow extends BookingWorkflow {
     private final PricingGrpcClient pricingGrpcClient;
     private final PaymentInitiationService paymentInitiationService;
     private final ShowRepository showRepository;
+    private final MovieRepository movieRepository;
+    private final EventPublisher eventPublisher;
 
     public StandardBookingWorkflow(
             BookingIdempotencyGuard bookingIdempotencyGuard,
@@ -40,7 +48,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
             PaymentConfirmationService paymentConfirmationService,
             SeatGrpcClient seatGrpcClient,
             PricingGrpcClient pricingGrpcClient,
-            PaymentInitiationService paymentInitiationService, ShowRepository showRepository) {
+            PaymentInitiationService paymentInitiationService, ShowRepository showRepository, MovieRepository movieRepository, EventPublisher eventPublisher) {
         this.bookingIdempotencyGuard = bookingIdempotencyGuard;
         this.bookingCancellationService = bookingCancellationService;
         this.paymentConfirmationService = paymentConfirmationService;
@@ -48,6 +56,8 @@ public class StandardBookingWorkflow extends BookingWorkflow {
         this.pricingGrpcClient = pricingGrpcClient;
         this.paymentInitiationService = paymentInitiationService;
         this.showRepository = showRepository;
+        this.movieRepository = movieRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // ==================================================
@@ -57,7 +67,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
     @Override
     protected void validate(Booking booking, BookingExecutionContext context) {
-
+        System.out.println("inside validate method");
         bookingIdempotencyGuard.checkExecutable(booking);
 
         if (context.getSeatCount() <= 0)
@@ -68,6 +78,13 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
         Show show = showRepository.findById(context.getShowId())
                 .orElseThrow(() -> new IllegalArgumentException("Show not found"));
+
+        // ✅ Fetch Movie using movieId from Show
+        Movie movie = movieRepository.findById(show.getMovieId())
+                .orElseThrow(() -> new IllegalArgumentException("Movie not found for show"));
+
+        // ✅ Set movie title in context for Kafka event
+        context.setMovieTitle(movie.getTitle());
 
         if (show.getStartTime().isBefore(Instant.now())) {
             throw new IllegalStateException("Cannot book past shows");
@@ -161,7 +178,16 @@ public class StandardBookingWorkflow extends BookingWorkflow {
     @Override
     protected void confirmBooking(Booking booking, BookingExecutionContext context) {
         paymentConfirmationService.confirmPayment(booking);
-
+        // Publish booking confirmed event
+        BookingConfirmedEvent event = new BookingConfirmedEvent(
+                booking.getBookingId(),
+                booking.getUserId(),
+                context.getShowId(),
+                context.getMovieTitle(),
+                context.getAllocatedSeats(),
+                context.getFinalPrice()
+        );
+        eventPublisher.publishEvent(event);
         System.out.println("Booking " + booking.getBookingId() + " CONFIRMED");
     }
 
@@ -178,6 +204,14 @@ public class StandardBookingWorkflow extends BookingWorkflow {
                 booking.getBookingId(),
                 BookingCancellationReason.SYSTEM_ERROR
         );
+
+        // Publish booking cancelled event
+        BookingCancelledEvent event = new BookingCancelledEvent(
+                booking.getBookingId(),
+                booking.getUserId(),
+                "PAYMENT_FAILED" // or appropriate reason
+        );
+        eventPublisher.publishEvent(event);
     }
 
     @Override

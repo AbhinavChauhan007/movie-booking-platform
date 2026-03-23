@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class BookingIdempotencyGuardTest {
 
+    private static final Long TEST_USER_ID = 999L;
+
     private BookingIdempotencyGuard guard;
 
     @BeforeEach
@@ -19,7 +21,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldAllowExecutionForNonFinalBooking() {
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(TEST_USER_ID);
 
         // should not throw exception
         assertDoesNotThrow(() -> guard.checkExecutable(booking));
@@ -30,7 +32,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldAllowExecutionForConfirmedBooking() {
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(TEST_USER_ID);
         booking.transitionTo(BookingStatus.INITIATED);
         booking.transitionTo(BookingStatus.CONFIRMED);
 
@@ -39,7 +41,7 @@ public class BookingIdempotencyGuardTest {
 
     @Test
     void shouldThrowIfBookingCancelled() {
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(TEST_USER_ID);
         booking.transitionTo(BookingStatus.CANCELLED);
 
         IllegalArgumentException ex = assertThrows(
@@ -47,12 +49,12 @@ public class BookingIdempotencyGuardTest {
                 () -> guard.checkExecutable(booking)
         );
 
-        assert(ex.getMessage().contains("already cancelled"));
+        assertTrue(ex.getMessage().contains("already cancelled"));
     }
 
     @Test
     void shouldThrowIfBookingExpired() {
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(TEST_USER_ID);
         booking.transitionTo(BookingStatus.EXPIRED);
 
         IllegalArgumentException ex = assertThrows(
@@ -60,6 +62,6 @@ public class BookingIdempotencyGuardTest {
                 () -> guard.checkExecutable(booking)
         );
 
-        assert(ex.getMessage().contains("already expired"));
+        assertTrue(ex.getMessage().contains("already expired"));
     }
 }

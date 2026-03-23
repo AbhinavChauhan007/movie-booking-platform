@@ -23,7 +23,7 @@ public class BookingCancellationService {
         this.bookingCache = bookingCache;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void cancelBooking(Long bookingId, BookingCancellationReason reason) {
 
         try {

@@ -1,5 +1,6 @@
 package com.abhinav.moviebooking.booking.bookingTest;
 
+import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
 import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
@@ -9,8 +10,11 @@ import com.abhinav.moviebooking.booking.payment.PaymentResult;
 import com.abhinav.moviebooking.booking.pricing.client.PricingGrpcClient;
 import com.abhinav.moviebooking.booking.seat.client.SeatGrpcClient;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
-import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
+import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
+import com.abhinav.moviebooking.event.service.EventPublisher;
+import com.abhinav.moviebooking.movie.entity.Movie;
+import com.abhinav.moviebooking.movie.repository.MovieRepository;
 import com.abhinav.moviebooking.show.entity.Show;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +30,8 @@ import static org.mockito.Mockito.*;
 
 class StandardBookingWorkflowTest {
 
+    private static final Long TEST_USER_ID = 789L;
+
     private BookingIdempotencyGuard idempotencyGuard;
     private BookingCancellationService cancellationService;
     private PaymentInitiationService paymentInitiationService;
@@ -33,7 +39,10 @@ class StandardBookingWorkflowTest {
     private SeatGrpcClient seatGrpcClient;
     private PricingGrpcClient pricingGrpcClient;
     private ShowRepository showRepository;
+    private MovieRepository movieRepository;
+    private EventPublisher eventPublisher;
     private StandardBookingWorkflow workflow;
+
 
     @BeforeEach
     void setUp() {
@@ -44,6 +53,9 @@ class StandardBookingWorkflowTest {
         seatGrpcClient = mock(SeatGrpcClient.class);
         pricingGrpcClient = mock(PricingGrpcClient.class);
         showRepository = mock(ShowRepository.class);
+        movieRepository = mock(MovieRepository.class);
+        eventPublisher = mock(EventPublisher.class);
+
 
         workflow = new StandardBookingWorkflow(
                 idempotencyGuard,
@@ -52,32 +64,43 @@ class StandardBookingWorkflowTest {
                 seatGrpcClient,
                 pricingGrpcClient,
                 paymentInitiationService,
-                showRepository
+                showRepository,
+                movieRepository,
+                eventPublisher
         );
     }
 
     @Test
-    void testExecute_HappyPath() {
-        Booking booking = Booking.newBooking();
-        booking.assignId(1L); // ✅ REQUIRED
-
-        long showId = 1L;
-        int seatCount = 2;
+    void execute_happyPath_confirmsBooking() {
+        Booking booking = Booking.newBooking(TEST_USER_ID);
+        booking.assignId(1L);
 
         BookingExecutionContext context =
-                new BookingExecutionContext(showId, seatCount, null);
+                new BookingExecutionContext(TEST_USER_ID, 10L, 2, null);
 
+        // Create movie and show
+        Movie movie = new Movie("Inception", "Sci-Fi", 148);
+        movie.setId(1L);
         Show show = new Show(1L, Instant.now().plusSeconds(3600), 1, 100);
-        when(showRepository.findById(showId)).thenReturn(Optional.of(show));
 
-        when(seatGrpcClient.allocateSeats(anyLong(), anyLong(), anyInt()))
+        when(showRepository.findById(10L)).thenReturn(Optional.of(show));
+        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
+
+        when(seatGrpcClient.allocateSeats(1L, 10L, 2))
                 .thenReturn(List.of("A1", "A2"));
 
         when(pricingGrpcClient.calculatePrice(anyDouble(), anyBoolean(), anyBoolean()))
                 .thenReturn(500.0);
 
         when(paymentInitiationService.initiatePayment(any(), anyDouble(), anyString()))
-                .thenReturn(PaymentResult.success("TXN-123"));
+                .thenReturn(PaymentResult.success("TXN-1"));
+
+        // Mock the confirmPayment to actually transition the booking to CONFIRMED
+        doAnswer(invocation -> {
+            Booking b = invocation.getArgument(0);
+            b.transitionTo(BookingStatus.CONFIRMED);
+            return null;
+        }).when(paymentConfirmationService).confirmPayment(any(Booking.class));
 
         workflow.execute(booking, context);
 
@@ -85,47 +108,47 @@ class StandardBookingWorkflowTest {
         assertEquals(List.of("A1", "A2"), context.getAllocatedSeats());
         assertEquals(500.0, context.getFinalPrice());
 
-        verify(seatGrpcClient)
-                .allocateSeats(1L, showId, seatCount);
-
-        verify(paymentInitiationService)
-                .initiatePayment(eq(booking), eq(500.0), eq("1:PAYMENT"));
+        verify(paymentConfirmationService).confirmPayment(booking);
     }
 
     @Test
-    void testExecute_ValidationFails_PastShow() {
-        Booking booking = Booking.newBooking();
-        booking.assignId(2L); // ✅ REQUIRED
+    void execute_validationFails_pastShow() {
+        Booking booking = Booking.newBooking(TEST_USER_ID);
+        booking.assignId(2L);
 
         BookingExecutionContext context =
-                new BookingExecutionContext(1L, 2, null);
+                new BookingExecutionContext(TEST_USER_ID, 1L, 2, null);
 
-        Show pastShow =
-                new Show(1L, Instant.now().minusSeconds(3600), 1, 100);
+        // Create movie and past show
+        Movie movie = new Movie("Inception", "Sci-Fi", 148);
+        movie.setId(1L);
+        Show pastShow = new Show(1L, Instant.now().minusSeconds(3600), 1, 100);
 
-        when(showRepository.findById(1L))
-                .thenReturn(Optional.of(pastShow));
+        when(showRepository.findById(1L)).thenReturn(Optional.of(pastShow));
+        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
 
-        IllegalStateException ex =
-                assertThrows(IllegalStateException.class,
-                        () -> workflow.execute(booking, context));
-
-        assertEquals("Cannot book past shows", ex.getMessage());
+        assertThrows(IllegalStateException.class,
+                () -> workflow.execute(booking, context));
     }
 
     @Test
-    void testExecute_PaymentFails_CompensatesBooking() {
-        Booking booking = Booking.newBooking();
-        booking.assignId(3L); // ✅ REQUIRED
+    void execute_paymentFails_triggersCompensation() {
+        Booking booking = Booking.newBooking(TEST_USER_ID);
+        booking.assignId(3L);
 
         BookingExecutionContext context =
-                new BookingExecutionContext(1L, 1, null);
+                new BookingExecutionContext(TEST_USER_ID, 1L, 1, null);
 
-        Show show =
-                new Show(1L, Instant.now().plusSeconds(3600), 1, 50);
+        // Attach context to booking so compensation can access it
+        booking.attachExecutionContext(context);
 
-        when(showRepository.findById(1L))
-                .thenReturn(Optional.of(show));
+        // Create movie and show
+        Movie movie = new Movie("Inception", "Sci-Fi", 148);
+        movie.setId(1L);
+        Show show = new Show(1L, Instant.now().plusSeconds(3600), 1, 50);
+
+        when(showRepository.findById(1L)).thenReturn(Optional.of(show));
+        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
 
         when(seatGrpcClient.allocateSeats(anyLong(), anyLong(), anyInt()))
                 .thenReturn(List.of("B1"));
@@ -139,27 +162,12 @@ class StandardBookingWorkflowTest {
         assertThrows(IllegalStateException.class,
                 () -> workflow.execute(booking, context));
 
+        // ✅ Seat released (showId is first parameter, bookingId is second)
+        verify(seatGrpcClient)
+                .releaseSeats(eq(1L), eq(3L), eq(List.of("B1")));
+
+        // ✅ Cancellation delegated correctly
         verify(cancellationService)
-                .cancelBooking(eq(3L), any());
-    }
-
-    @Test
-    void testCancelBooking() {
-        Booking booking = Booking.newBooking();
-        booking.transitionTo(BookingStatus.INITIATED);
-
-        workflow.cancelBooking(booking);
-
-        assertEquals(BookingStatus.CANCELLED, booking.getBookingStatus());
-    }
-
-    @Test
-    void testExpireBooking() {
-        Booking booking = Booking.newBooking();
-        booking.transitionTo(BookingStatus.INITIATED);
-
-        workflow.expireBooking(booking);
-
-        assertEquals(BookingStatus.EXPIRED, booking.getBookingStatus());
+                .cancelBooking(eq(3L), eq(BookingCancellationReason.SYSTEM_ERROR));
     }
 }

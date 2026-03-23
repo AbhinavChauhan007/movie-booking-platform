@@ -2,17 +2,20 @@ package com.abhinav.moviebooking.movie.controller;
 
 import com.abhinav.moviebooking.movie.dto.request.MovieRequestDTO;
 import com.abhinav.moviebooking.movie.dto.response.MovieResponseDTO;
+import com.abhinav.moviebooking.movie.exception.MovieNotFoundException;
 import com.abhinav.moviebooking.movie.service.impl.MovieServiceImpl;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/movies")
+@Tag(name = "Movies", description = "Movie catalog management")
 public class MovieController {
 
     private final MovieServiceImpl movieService;
@@ -25,6 +28,10 @@ public class MovieController {
     // Everyone
     @GetMapping("/getAllMovies")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    @Operation(
+            summary = "Get all movies",
+            description = "Retrieve complete list of all movies in the catalog"
+    )
     public List<MovieResponseDTO> fetchAllMovies() {
         return movieService.fetchAllMovies();
     }
@@ -33,7 +40,11 @@ public class MovieController {
     // Everyone
     @GetMapping("/getMovie/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
-    public MovieResponseDTO getMovieById(@PathVariable Long id) {
+    @Operation(
+            summary = "Get movie by ID",
+            description = "Retrieve detailed information about a specific movie"
+    )
+    public MovieResponseDTO getMovieById(@PathVariable Long id) throws MovieNotFoundException {
         return movieService.fetchMovieById(id);
     }
 
@@ -41,6 +52,11 @@ public class MovieController {
     // ADMIN only
     @PostMapping("/saveMovie")
     @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(
+            summary = "Create movie (Admin only)",
+            description = "Add a new movie to the catalog with title, genre, and duration"
+    )
     public MovieResponseDTO addMovie(@Valid @RequestBody MovieRequestDTO movieRequestDTO) {
         System.out.println("Received movieRequestDTO: "
                 + movieRequestDTO.getTitle() + ", "
@@ -53,7 +69,12 @@ public class MovieController {
     // ADMIN only
     @PutMapping("/updateMovie/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public MovieResponseDTO updateMovie(@PathVariable Long id, @RequestBody @Valid MovieRequestDTO updatedMovieRequestDTO) {
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(
+            summary = "Update movie (Admin only)",
+            description = "Update existing movie details"
+    )
+    public MovieResponseDTO updateMovie(@PathVariable Long id, @RequestBody @Valid MovieRequestDTO updatedMovieRequestDTO) throws MovieNotFoundException {
         return movieService.updateMovie(id, updatedMovieRequestDTO);
     }
 
@@ -61,7 +82,12 @@ public class MovieController {
     // ADMIN only
     @DeleteMapping("/deleteMovie/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public void deleteMovie(@PathVariable Long id) {
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(
+            summary = "Delete movie (Admin only)",
+            description = "Remove a movie from the catalog"
+    )
+    public void deleteMovie(@PathVariable Long id) throws MovieNotFoundException {
         movieService.deleteMovie(id);
     }
 

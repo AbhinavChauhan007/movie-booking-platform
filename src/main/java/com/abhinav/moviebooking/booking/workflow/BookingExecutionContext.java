@@ -7,20 +7,27 @@ import java.util.List;
 
 public class BookingExecutionContext implements Serializable {
 
+    private Long userId;
     private Long showId;
     private int seatCount;
     private SeatType seatType;
     private double finalPrice;
+    private String movieTitle;
 
     private List<String> allocatedSeats;
 
     public BookingExecutionContext() {
     }
 
-    public BookingExecutionContext(Long showId, int seatCount, SeatType seatType) {
+    public BookingExecutionContext(Long userId, Long showId, int seatCount, SeatType seatType) {
+        this.userId = userId;
         this.showId = showId;
         this.seatCount = seatCount;
         this.seatType = seatType;
+    }
+
+    public Long getUserId() {
+        return userId;
     }
 
     public Long getShowId() {
@@ -49,5 +56,13 @@ public class BookingExecutionContext implements Serializable {
 
     public void setAllocatedSeats(List<String> allocatedSeats) {
         this.allocatedSeats = allocatedSeats;
+    }
+
+    public String getMovieTitle() {
+        return movieTitle;
+    }
+
+    public void setMovieTitle(String movieTitle) {
+        this.movieTitle = movieTitle;
     }
 }

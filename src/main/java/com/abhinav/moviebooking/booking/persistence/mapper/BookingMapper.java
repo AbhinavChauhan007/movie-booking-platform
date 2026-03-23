@@ -15,12 +15,18 @@ public final class BookingMapper {
     public static BookingEntity toEntity(Booking booking) {
         BookingEntity entity = new BookingEntity(
                 booking.getBookingId(),
+                booking.getUserId(),
                 booking.getBookingStatus(),
                 booking.getCreatedAt()
         );
 
         if (booking.getCancellationReason() != null) {
             entity.setCancellationReason(booking.getCancellationReason());
+        }
+
+        // Extract totalPrice from execution context if available
+        if (booking.getBookingExecutionContext() != null) {
+            entity.setTotalPrice(booking.getBookingExecutionContext().getFinalPrice());
         }
 
         return entity;
@@ -32,6 +38,7 @@ public final class BookingMapper {
     public static Booking toDomain(BookingEntity entity) {
         return Booking.rehydrate(
                 entity.getBookingId(),
+                entity.getUserId(),
                 entity.getBookingStatus(),
                 entity.getCreatedAt(),
                 entity.getCancellationReason()
@@ -45,6 +52,12 @@ public final class BookingMapper {
     public static void updateEntityFromDomain(Booking domain, BookingEntity entity) {
         entity.setBookingStatus(domain.getBookingStatus());
         entity.setCancellationReason(domain.getCancellationReason());
+
+        // Update price from execution context if available
+        if (domain.getBookingExecutionContext() != null) {
+            entity.setTotalPrice(domain.getBookingExecutionContext().getFinalPrice());
+        }
+        // userId should never change (immutable business key)
         // createdAt should never change
         // updatedAt is handled automatically by @PreUpdate
     }

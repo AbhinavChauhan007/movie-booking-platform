@@ -27,7 +27,7 @@ public class MovieServiceImpl implements MovieService {
     }
 
     // fetch movie By ID
-    public MovieResponseDTO fetchMovieById(Long id) {
+    public MovieResponseDTO fetchMovieById(Long id) throws MovieNotFoundException {
         Movie fetchedMovie = movieRepository.findById(id)
                 .orElseThrow(() -> new MovieNotFoundException(id));
         return mapToResponseDTO(fetchedMovie);
@@ -42,7 +42,7 @@ public class MovieServiceImpl implements MovieService {
     }
 
     //updateMovie
-    public MovieResponseDTO updateMovie(Long id, MovieRequestDTO updateMovieRequestDTO) {
+    public MovieResponseDTO updateMovie(Long id, MovieRequestDTO updateMovieRequestDTO) throws MovieNotFoundException {
         Movie existingMovie = movieRepository.findById(id)
                 .orElseThrow(() -> new MovieNotFoundException(id));
 
@@ -55,7 +55,7 @@ public class MovieServiceImpl implements MovieService {
     }
 
     //delete Movie
-    public void deleteMovie(Long id) {
+    public void deleteMovie(Long id) throws MovieNotFoundException {
         Movie existingMovie = movieRepository.findById(id)
                 .orElseThrow(() -> new MovieNotFoundException(id));
         movieRepository.deleteById(id);

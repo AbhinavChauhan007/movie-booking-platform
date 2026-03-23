@@ -43,7 +43,7 @@ public class BookingFacade {
      * Initiates a booking in a safe, idempotent manner.
      */
     @Transactional
-    public Booking initiateBooking(Long showId, int seatCount, SeatType seatType, String idempotencyKey) {
+    public Booking initiateBooking(Long userId, Long showId, int seatCount, SeatType seatType, String idempotencyKey) {
 
         // --------------------------------------------------
         // 1. Fast idempotency read path
@@ -59,7 +59,7 @@ public class BookingFacade {
         // --------------------------------------------------
         // 2. Create & persist booking EARLY (ID required)
         // --------------------------------------------------
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(userId);
         Booking persistedBooking = bookingPersistenceAdapter.save(booking);
 
         // --------------------------------------------------
@@ -85,7 +85,7 @@ public class BookingFacade {
         // 4. Attach runtime execution context
         // --------------------------------------------------
         BookingExecutionContext context =
-                new BookingExecutionContext(showId, seatCount, seatType);
+                new BookingExecutionContext(userId, showId, seatCount, seatType);
 
         persistedBooking.attachExecutionContext(context);
 

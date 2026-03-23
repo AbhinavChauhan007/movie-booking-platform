@@ -16,8 +16,9 @@ import static org.mockito.Mockito.*;
 
 public class BookingReadServiceTest {
 
-    private BookingCache bookingCache;
+    private static final Long TEST_USER_ID = 999L;
 
+    private BookingCache bookingCache;
     private BookingReadService bookingReadService;
 
     @BeforeEach
@@ -29,7 +30,7 @@ public class BookingReadServiceTest {
     @Test
     @DisplayName("Should return booking from cache")
     void shouldReturnBookingFromCache() {
-        Booking cachedBooking = Booking.newBooking();
+        Booking cachedBooking = Booking.newBooking(TEST_USER_ID);
         cachedBooking.assignId(1L);
 
         when(bookingCache.get(1L)).thenReturn(Optional.of(cachedBooking));

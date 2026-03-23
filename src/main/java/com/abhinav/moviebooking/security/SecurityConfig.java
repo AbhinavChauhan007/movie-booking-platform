@@ -49,9 +49,22 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
+                        // Auth endpoints
                         .requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
-                        .requestMatchers("/auth/**", "/h2-console/**")
-                        .permitAll()
+                        .requestMatchers("/auth/**").permitAll()
+
+                        // User registration
+                        .requestMatchers("/users/createUser").permitAll()
+
+                        // Swagger UI (IMPORTANT - MUST BE BEFORE anyRequest())
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
+
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

@@ -15,6 +15,9 @@ public class BookingEntity {
     @Column(name = "booking_id")
     private Long bookingId;
 
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
     @Column(name = "booking_status", nullable = false)
     @Enumerated(EnumType.STRING)
     private BookingStatus bookingStatus;
@@ -33,20 +36,29 @@ public class BookingEntity {
     @Column(name = "cancellation_reason")
     private BookingCancellationReason cancellationReason;
 
+    @Column(name = "total_price")
+    private Double totalPrice;
+
     public BookingEntity() {
         // JPA only
     }
 
-    public BookingEntity(Long bookingId, BookingStatus bookingStatus, Instant createdAt) {
+    public BookingEntity(Long bookingId, Long userId, BookingStatus bookingStatus, Instant createdAt) {
         if (createdAt == null) {
             throw new IllegalStateException("createdAt must be set by domain");
         }
+
+        if (userId == null) {
+            throw new IllegalStateException("userId must be set");
+        }
         this.bookingId = bookingId;
+        this.userId = userId;
         this.bookingStatus = bookingStatus;
         this.createdAt = createdAt;
     }
 
     public BookingEntity(Long bookingId,
+                         Long userId,
                          BookingStatus bookingStatus,
                          Instant createdAt,
                          Instant updatedAt) {
@@ -55,12 +67,16 @@ public class BookingEntity {
             throw new IllegalStateException("createdAt must not be null");
         }
 
+        if (userId == null) {
+            throw new IllegalStateException("userId must not be null");
+        }
+
         this.bookingId = bookingId;
+        this.userId = userId;
         this.bookingStatus = bookingStatus;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt != null ? updatedAt : createdAt;
     }
-
 
     @PrePersist
     void onCreate() {
@@ -96,12 +112,28 @@ public class BookingEntity {
         return updatedAt;
     }
 
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
     public BookingCancellationReason getCancellationReason() {
         return cancellationReason;
     }
 
     public void setCancellationReason(BookingCancellationReason cancellationReason) {
         this.cancellationReason = cancellationReason;
+    }
+
+    public Double getTotalPrice() {
+        return totalPrice;
+    }
+
+    public void setTotalPrice(Double totalPrice) {
+        this.totalPrice = totalPrice;
     }
 
 }

@@ -1,6 +1,7 @@
 package com.abhinav.moviebooking.user.service.impl;
 
 import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
+import com.abhinav.moviebooking.user.dto.response.RoleResponseDTO;
 import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
 import com.abhinav.moviebooking.user.entity.Role;
 import com.abhinav.moviebooking.user.entity.User;
@@ -35,7 +36,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponseDTO createUser(CreateUserRequestDTO userRequestDTO) {
+    public UserResponseDTO createUser(CreateUserRequestDTO userRequestDTO) throws UserAlreadyExistsException, RoleNotFoundException {
 
         // Check username uniqueness
         if (userRepository.findByUsername(userRequestDTO.getUsername()).isPresent())
@@ -64,7 +65,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponseDTO getUserById(Long id) {
+    public UserResponseDTO getUserById(Long id) throws UserNotFoundException {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
         return mapToUserResponseDTO(user);
@@ -79,7 +80,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void assignRoleToUser(Long userId, String roleName) {
+    public void assignRoleToUser(Long userId, String roleName) throws UserNotFoundException, RoleNotFoundException {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -90,10 +91,30 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteUser(Long userId) {
+    public void deleteUser(Long userId) throws UserNotFoundException {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         userRepository.delete(user);
+    }
+
+    @Override
+    public List<RoleResponseDTO> getAllRoles() {
+        return roleRepository.findAll()
+                .stream()
+                .map(role -> new RoleResponseDTO(role.getId(), role.getName()))
+                .collect(Collectors.toList());
+
+    }
+
+    @Override
+    public Set<String> getUserRoles(Long userId) throws UserNotFoundException {
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new UserNotFoundException(userId));
+
+        return user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
     }
 
 
@@ -111,4 +132,6 @@ public class UserServiceImpl implements UserService {
         userResponseDTO.setRoles(roles);
         return userResponseDTO;
     }
+
+
 }

@@ -10,6 +10,7 @@ import java.time.Instant;
 public class Booking implements Serializable {
 
     private Long bookingId;
+    private Long userId;
     private BookingStatus bookingStatus;
     private Instant createdAt;
     private BookingCancellationReason cancellationReason;
@@ -19,8 +20,9 @@ public class Booking implements Serializable {
     public Booking() {
     }
 
-    public Booking(Long bookingId, BookingStatus bookingStatus, Instant createdAt, BookingCancellationReason cancellationReason) {
+    public Booking(Long bookingId, Long userId, BookingStatus bookingStatus, Instant createdAt, BookingCancellationReason cancellationReason) {
         this.bookingId = bookingId;
+        this.userId = userId;
         this.bookingStatus = bookingStatus;
         this.createdAt = createdAt;
         this.cancellationReason = cancellationReason;
@@ -29,23 +31,28 @@ public class Booking implements Serializable {
     /**
      * Factory method for NEW bookings only
      */
-    public static Booking newBooking() {
+    public static Booking newBooking(Long userId) {
         return new Booking(
                 null,
+                userId,
                 BookingStatus.CREATED,
                 Instant.now(),
                 null
+
         );
     }
 
     /**
      * Factory for rehydration from persistence
      */
-    public static Booking rehydrate(Long bookingId, BookingStatus status, Instant createdAt, BookingCancellationReason reason) {
+    public static Booking rehydrate(Long bookingId, Long userId, BookingStatus status, Instant createdAt, BookingCancellationReason reason) {
         if (createdAt == null) {
             throw new IllegalStateException("createdAt cannot be null while rehydrating Booking");
         }
-        return new Booking(bookingId, status, createdAt, reason);
+        if (userId == null) {
+            throw new IllegalStateException("userId cannot be null while rehydrating Booking");
+        }
+        return new Booking(bookingId, userId, status, createdAt, reason);
     }
 
     // =====================
@@ -88,6 +95,10 @@ public class Booking implements Serializable {
 
     public BookingCancellationReason getCancellationReason() {
         return cancellationReason;
+    }
+
+    public Long getUserId() {  // NEW GETTER
+        return userId;
     }
 
     public void transitionTo(BookingStatus targetStatus) {

@@ -9,6 +9,8 @@ import com.abhinav.moviebooking.security.token.entity.RefreshToken;
 import com.abhinav.moviebooking.security.token.service.RefreshTokenService;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "Authentication", description = "User authentication and authorization operations")
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
@@ -43,6 +46,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(
+            summary = "User login",
+            description = "Authenticate user with email and password, returns JWT access token and refresh token"
+    )
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid AuthRequest authRequest) {
 
         // 1. Authenticate (DB hit happens INSIDE this call)
@@ -72,6 +79,10 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @Operation(
+            summary = "User logout",
+            description = "Blacklist the current JWT token to prevent further use"
+    )
     public ResponseEntity<String> logout(HttpServletRequest request) {
 
         String authHeader = request.getHeader("Authorization");
@@ -108,6 +119,10 @@ public class AuthController {
 
 
     @PostMapping("/refresh")
+    @Operation(
+            summary = "Refresh access token",
+            description = "Generate new access token and refresh token using existing refresh token"
+    )
     public ResponseEntity<AuthResponse> refresh(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
 

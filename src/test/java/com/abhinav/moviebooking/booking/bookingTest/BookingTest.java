@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class BookingTest {
 
+    private static final Long TEST_USER_ID = 123L;
+
     /* -----------------------------------------------------------
      * CONSTRUCTION
      * -----------------------------------------------------------
@@ -24,14 +26,14 @@ public class BookingTest {
     @Test
     @DisplayName("New booking should start in CREATED state")
     void booking_should_start_in_created_state() {
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(TEST_USER_ID);
         assertEquals(BookingStatus.CREATED, booking.getBookingStatus());
     }
 
     @Test
     @DisplayName("Booking constructed with status should preserve state")
     void bookingWithProvidedStatusShouldPreserveState() {
-        Booking booking = new Booking(1L, BookingStatus.INITIATED, Instant.now(),null);
+        Booking booking = new Booking(1L, TEST_USER_ID, BookingStatus.INITIATED, Instant.now(), null);
         assertEquals(BookingStatus.INITIATED, booking.getBookingStatus());
     }
 
@@ -43,7 +45,7 @@ public class BookingTest {
     @Test
     @DisplayName("Booking ID should be assignable post-creation")
     void shouldAssignBookingId() {
-        Booking booking = Booking.newBooking();
+        Booking booking = Booking.newBooking(TEST_USER_ID);
         booking.assignId(100L);
 
         assertEquals(100L, booking.getBookingId());
@@ -57,8 +59,8 @@ public class BookingTest {
     @Test
     @DisplayName("Booking should attach execution context")
     void shouldAttachExecutionContext() {
-        Booking booking = Booking.newBooking();
-        BookingExecutionContext context = new BookingExecutionContext(1L, 2, null);
+        Booking booking = Booking.newBooking(TEST_USER_ID);
+        BookingExecutionContext context = new BookingExecutionContext(1L, TEST_USER_ID, 2, null);
 
         booking.attachExecutionContext(context);
 
@@ -88,7 +90,7 @@ public class BookingTest {
     @MethodSource("validTransitions")
     @DisplayName("Booking should allow valid transitions")
     void shouldAllowValidTransitions(BookingStatus from, BookingStatus to) {
-        Booking booking = new Booking(1L, from, Instant.now(),null);
+        Booking booking = new Booking(1L, TEST_USER_ID, from, Instant.now(), null);
 
         booking.transitionTo(to);
 
@@ -123,7 +125,7 @@ public class BookingTest {
     @MethodSource("invalidTransitions")
     @DisplayName("Booking should reject invalid transitions")
     void shouldRejectInvalidTransitions(BookingStatus from, BookingStatus to) {
-        Booking booking = new Booking(1L, from, Instant.now(),null);
+        Booking booking = new Booking(1L, TEST_USER_ID, from, Instant.now(), null);
 
         assertThrows(IllegalArgumentException.class, () ->
                 booking.transitionTo(to)
