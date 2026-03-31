@@ -3,6 +3,7 @@ package com.abhinav.moviebooking.booking.persistence.adapter;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.exception.BookingConcurrencyException;
+import com.abhinav.moviebooking.booking.exception.BookingNotFoundException;
 import com.abhinav.moviebooking.booking.persistence.entity.BookingEntity;
 import com.abhinav.moviebooking.booking.persistence.mapper.BookingMapper;
 import com.abhinav.moviebooking.booking.persistence.repository.BookingRepository;
@@ -41,7 +42,7 @@ public class BookingPersistenceAdapter {
                 // Existing booking → fetch managed entity from DB
                 entity = entityManager.find(BookingEntity.class, booking.getBookingId());
                 if (entity == null) {
-                    throw new IllegalStateException("Booking not found: " + booking.getBookingId());
+                    throw new BookingNotFoundException(booking.getBookingId());
                 }
 
                 // Update managed entity with domain state
@@ -82,9 +83,9 @@ public class BookingPersistenceAdapter {
      */
     public List<Long> findExpiredInitiatedBookings(Instant expiryTime, int batchSize) {
         return bookingRepository.findExpiredInitiatedBookings(
-                        BookingStatus.INITIATED,
-                        expiryTime,
-                        PageRequest.of(0, batchSize)
-                );
+                BookingStatus.INITIATED,
+                expiryTime,
+                PageRequest.of(0, batchSize)
+        );
     }
 }

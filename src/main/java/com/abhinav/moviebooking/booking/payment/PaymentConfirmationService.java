@@ -4,6 +4,7 @@ import com.abhinav.moviebooking.booking.cache.BookingCache;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.exception.BookingNotFoundException;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
 import com.abhinav.moviebooking.booking.persistence.adapter.SeatBookingPersistenceAdapter;
 import com.abhinav.moviebooking.booking.seat.core.SeatService;
@@ -35,7 +36,7 @@ public class PaymentConfirmationService {
 
         // Now this check will PASS because the workflow updated the memory state to INITIATED
         if (booking.getBookingStatus() != BookingStatus.INITIATED) {
-            throw new IllegalStateException(
+            throw new InvalidBookingStateException(
                     "Cannot confirm payment for booking in state: " + booking.getBookingStatus()
             );
         }

@@ -2,7 +2,7 @@ package com.abhinav.moviebooking.common.exception;
 
 import com.abhinav.moviebooking.util.ErrorCode;
 
-public abstract class BusinessException extends Exception {
+public abstract class BusinessException extends RuntimeException {
 
     private final ErrorCode errorCode;
 

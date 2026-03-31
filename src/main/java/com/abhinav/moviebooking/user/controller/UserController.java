@@ -1,6 +1,8 @@
 package com.abhinav.moviebooking.user.controller;
 
 
+import com.abhinav.moviebooking.common.dto.ApiResponse;
+import com.abhinav.moviebooking.user.dto.request.AssignRoleRequest;
 import com.abhinav.moviebooking.user.dto.response.RoleResponseDTO;
 import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
 import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
@@ -39,23 +41,27 @@ public class UserController {
             summary = "Get all users (Admin only)",
             description = "Retrieve a list of all registered users"
     )
-    public ResponseEntity<List<UserResponseDTO>> getAllUsers() {
+    public ResponseEntity<ApiResponse<List<UserResponseDTO>>> getAllUsers() {
         return ResponseEntity
-                .ok()
-                .body(userService.getAllUsers());
+                .ok(
+                        ApiResponse.success("Users retrieved successfully", userService.getAllUsers())
+                );
+
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("getUserById/{id}")
+    @GetMapping("getUserById/{userId}")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(
             summary = "Get user by ID (Admin only)",
             description = "Retrieve detailed information about a specific user"
     )
-    public ResponseEntity<UserResponseDTO> getUserById(@PathVariable Long userId) throws UserNotFoundException {
+    public ResponseEntity<ApiResponse<UserResponseDTO>> getUserById(@PathVariable Long userId) {
         return ResponseEntity
-                .status(HttpStatus.OK)
-                .body(userService.getUserById(userId));
+                .ok(
+                        ApiResponse.success("User retrieved successfully", userService.getUserById(userId))
+                );
+
     }
 
     // PUBLIC (usually signup is via AuthController)
@@ -64,54 +70,68 @@ public class UserController {
             summary = "Register new user",
             description = "Create a new user account with email, password, and name"
     )
-    public ResponseEntity<UserResponseDTO> createUser(@RequestBody @Valid CreateUserRequestDTO createUserRequestDTO) throws UserAlreadyExistsException, RoleNotFoundException {
+    public ResponseEntity<ApiResponse<UserResponseDTO>> createUser(@RequestBody @Valid CreateUserRequestDTO createUserRequestDTO) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(userService.createUser(createUserRequestDTO));
+                .body(ApiResponse.success("User created successfully", userService.createUser(createUserRequestDTO)));
 
     }
 
-    @DeleteMapping("/deleteUser/{id}")
+    @DeleteMapping("/deleteUser/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(
             summary = "Delete user (Admin only)",
             description = "Permanently delete a user account"
     )
-    public void deleteUser(@PathVariable Long userId) throws UserNotFoundException {
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long userId) {
         userService.deleteUser(userId);
+        return ResponseEntity.ok(
+                ApiResponse.success("User with ID " + userId + " deleted successfully")
+        );
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("assignRole/{userId}/roles/{roleName}")
+    @PutMapping("/assignRole/{userId}")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(
             summary = "Assign role to user (Admin only)",
             description = "Assign a role (ADMIN/USER) to a specific user"
     )
-    public void assignRole(@PathVariable Long userId, @PathVariable String roleName) throws UserNotFoundException, RoleNotFoundException {
-        userService.assignRoleToUser(userId, roleName);
+    public ResponseEntity<ApiResponse<Void>> assignRole(@PathVariable Long userId, @Valid @RequestBody AssignRoleRequest roleRequest) {
+        userService.assignRoleToUser(userId, roleRequest.getRoleName());
+        return
+                ResponseEntity.ok(
+                        ApiResponse.success("Roles assigned successfully to user")
+                );
     }
 
-    @GetMapping("/roles")
+    @GetMapping("/getAllRoles")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(
             summary = "Get all roles (Admin only)",
             description = "Retrieve a list of all available roles in the system"
     )
-    public ResponseEntity<List<RoleResponseDTO>> getAllRoles() {
-        return ResponseEntity.ok(userService.getAllRoles());
+    public ResponseEntity<ApiResponse<List<RoleResponseDTO>>> getAllRoles() {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Roles retrieved successfully", userService.getAllRoles()
+                )
+        );
     }
 
-    @GetMapping("/{userId}/roles")
-    @PreAuthorize("hasRole('ADMIN') or #userId == authentication.principal.id")
+    @GetMapping("/getUserRoles/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or #userId == authentication.principal.userId")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(
             summary = "Get user's roles",
             description = "Retrieve all roles assigned to a specific user. Users can view their own roles, admins can view any user's roles"
     )
-    public ResponseEntity<Set<String>> getUserRoles(@PathVariable Long userId) throws UserNotFoundException {
-        return ResponseEntity.ok(userService.getUserRoles(userId));
+    public ResponseEntity<ApiResponse<Set<String>>> getUserRoles(@PathVariable Long userId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "User roles retrieved successfully", userService.getUserRoles(userId))
+        );
     }
 }

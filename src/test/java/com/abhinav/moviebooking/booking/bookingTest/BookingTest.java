@@ -2,6 +2,7 @@ package com.abhinav.moviebooking.booking.bookingTest;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -127,7 +128,7 @@ public class BookingTest {
     void shouldRejectInvalidTransitions(BookingStatus from, BookingStatus to) {
         Booking booking = new Booking(1L, TEST_USER_ID, from, Instant.now(), null);
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(InvalidBookingStateException.class, () ->
                 booking.transitionTo(to)
         );
     }

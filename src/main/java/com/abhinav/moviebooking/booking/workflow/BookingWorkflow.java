@@ -2,6 +2,9 @@ package com.abhinav.moviebooking.booking.workflow;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
+import com.abhinav.moviebooking.booking.exception.InvalidSeatCountException;
+import com.abhinav.moviebooking.show.exception.ShowValidationException;
 
 public abstract class BookingWorkflow {
 
@@ -10,7 +13,7 @@ public abstract class BookingWorkflow {
     // ==================================================
     // Template Method (Happy Path)
     // ==================================================
-    public final void execute(Booking booking, BookingExecutionContext context) {
+    public final void execute(Booking booking, BookingExecutionContext context) throws InvalidBookingStateException, InvalidSeatCountException {
         try {
             validate(booking, context);
             allocateSeats(booking, context);
@@ -25,7 +28,7 @@ public abstract class BookingWorkflow {
     }
 
 
-    protected abstract void validate(Booking booking, BookingExecutionContext context);
+    protected abstract void validate(Booking booking, BookingExecutionContext context) throws InvalidBookingStateException, InvalidSeatCountException, ShowValidationException;
 
     protected abstract void allocateSeats(Booking booking, BookingExecutionContext context);
 

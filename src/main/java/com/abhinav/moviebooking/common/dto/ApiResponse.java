@@ -1,44 +1,65 @@
 package com.abhinav.moviebooking.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.Instant;
 
+/**
+ * Standardized API response wrapper for successful operations.
+ * All controller endpoints should return this structure for success cases.
+ *
+ * For error responses, see ApiErrorResponse which is used by GlobalExceptionHandler.
+ *
+ * @param <T> The type of data being returned
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
     private boolean success;
     private String message;
-    private T Data;
-    private ErrorDetails error;
+    private T data;
     private Instant timestamp;
 
+    /**
+     * Default constructor for deserialization
+     */
     public ApiResponse() {
         this.timestamp = Instant.now();
     }
 
-    // Success response
+    /**
+     * Private constructor for factory methods
+     */
+    private ApiResponse(boolean success, String message, T data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+        this.timestamp = Instant.now();
+    }
+
+    // ==================== FACTORY METHODS ====================
+
+    /**
+     * Create a successful response with data
+     *
+     * @param message Success message
+     * @param data Response data
+     * @return ApiResponse instance
+     */
     public static <T> ApiResponse<T> success(String message, T data) {
-        ApiResponse<T> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setMessage(message);
-        response.setData(data);
-        return response;
+        return new ApiResponse<>(true, message, data);
     }
 
-    // Success response without data
+    /**
+     * Create a successful response without data
+     *
+     * @param message Success message
+     * @return ApiResponse instance
+     */
     public static <T> ApiResponse<T> success(String message) {
-        return success(message, null);
+        return new ApiResponse<>(true, message, null);
     }
 
-    // Error response
-    public static <T> ApiResponse<T> error(String message, String errorCode, String details) {
-        ApiResponse<T> response = new ApiResponse<>();
-        response.setSuccess(false);
-        response.setMessage(message);
-        response.setError(new ErrorDetails(errorCode, details));
-        return response;
-    }
+    // ==================== GETTERS AND SETTERS ====================
 
     public boolean isSuccess() {
         return success;
@@ -57,19 +78,11 @@ public class ApiResponse<T> {
     }
 
     public T getData() {
-        return Data;
+        return data;
     }
 
     public void setData(T data) {
-        Data = data;
-    }
-
-    public ErrorDetails getError() {
-        return error;
-    }
-
-    public void setError(ErrorDetails error) {
-        this.error = error;
+        this.data = data;
     }
 
     public Instant getTimestamp() {
@@ -79,32 +92,4 @@ public class ApiResponse<T> {
     public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
     }
-
-    // Inner class for error details
-    public static class ErrorDetails {
-        private String code;
-        private String details;
-
-        public ErrorDetails(String code, String details) {
-            this.code = code;
-            this.details = details;
-        }
-
-        public String getCode() {
-            return code;
-        }
-
-        public void setCode(String code) {
-            this.code = code;
-        }
-
-        public String getDetails() {
-            return details;
-        }
-
-        public void setDetails(String details) {
-            this.details = details;
-        }
-    }
-
 }

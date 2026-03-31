@@ -6,6 +6,7 @@ import com.abhinav.moviebooking.movie.entity.Movie;
 import com.abhinav.moviebooking.movie.exception.MovieNotFoundException;
 import com.abhinav.moviebooking.movie.repository.MovieRepository;
 import com.abhinav.moviebooking.movie.service.impl.MovieServiceImpl;
+import com.abhinav.moviebooking.show.repository.ShowRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,11 +22,13 @@ class MovieServiceTest {
 
     private MovieRepository movieRepository;
     private MovieServiceImpl movieService;
+    private ShowRepository showRepository;
 
     @BeforeEach
     void setUp() {
         movieRepository = mock(MovieRepository.class);
-        movieService = new MovieServiceImpl(movieRepository);
+        showRepository = mock(ShowRepository.class);
+        movieService = new MovieServiceImpl(movieRepository, showRepository);
     }
 
     @Test
@@ -44,7 +47,7 @@ class MovieServiceTest {
         movie2.setGenre("Action");
         movie2.setDurationMinutes(136);
 
-        when(movieRepository.findAll()).thenReturn(List.of(movie1, movie2));
+        when(movieRepository.findAllByActiveTrue()).thenReturn(List.of(movie1, movie2));
 
         // When
         List<MovieResponseDTO> result = movieService.fetchAllMovies();
@@ -53,7 +56,7 @@ class MovieServiceTest {
         assertEquals(2, result.size());
         assertEquals("Inception", result.get(0).getTitle());
         assertEquals("The Matrix", result.get(1).getTitle());
-        verify(movieRepository).findAll();
+        verify(movieRepository).findAllByActiveTrue();
     }
 
     @Test
@@ -67,7 +70,7 @@ class MovieServiceTest {
         movie.setGenre("Sci-Fi");
         movie.setDurationMinutes(148);
 
-        when(movieRepository.findById(movieId)).thenReturn(Optional.of(movie));
+        when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.of(movie));
 
         // When
         MovieResponseDTO result = movieService.fetchMovieById(movieId);
@@ -78,7 +81,7 @@ class MovieServiceTest {
         assertEquals("Inception", result.getTitle());
         assertEquals("Sci-Fi", result.getGenre());
         assertEquals(148, result.getDurationMinutes());
-        verify(movieRepository).findById(movieId);
+        verify(movieRepository).findByIdAndActiveTrue(movieId);
     }
 
     @Test
@@ -86,7 +89,7 @@ class MovieServiceTest {
     void fetchMovieById_shouldThrowException_whenMovieNotFound() {
         // Given
         Long movieId = 999L;
-        when(movieRepository.findById(movieId)).thenReturn(Optional.empty());
+        when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.empty());
 
         // When & Then
         MovieNotFoundException exception = assertThrows(
@@ -95,7 +98,7 @@ class MovieServiceTest {
         );
 
         assertTrue(exception.getMessage().contains("999"));
-        verify(movieRepository).findById(movieId);
+        verify(movieRepository).findByIdAndActiveTrue(movieId);
     }
 
     @Test
@@ -149,7 +152,7 @@ class MovieServiceTest {
         updatedMovie.setGenre("Thriller");
         updatedMovie.setDurationMinutes(150);
 
-        when(movieRepository.findById(movieId)).thenReturn(Optional.of(existingMovie));
+        when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.of(existingMovie));
         when(movieRepository.save(any(Movie.class))).thenReturn(updatedMovie);
 
         // When
@@ -161,7 +164,7 @@ class MovieServiceTest {
         assertEquals("Inception Updated", result.getTitle());
         assertEquals("Thriller", result.getGenre());
         assertEquals(150, result.getDurationMinutes());
-        verify(movieRepository).findById(movieId);
+        verify(movieRepository).findByIdAndActiveTrue(movieId);
         verify(movieRepository).save(existingMovie);
     }
 
@@ -175,7 +178,7 @@ class MovieServiceTest {
         updateDTO.setGenre("Genre");
         updateDTO.setDurationMinutes(120);
 
-        when(movieRepository.findById(movieId)).thenReturn(Optional.empty());
+        when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(
@@ -183,7 +186,7 @@ class MovieServiceTest {
                 () -> movieService.updateMovie(movieId, updateDTO)
         );
 
-        verify(movieRepository).findById(movieId);
+        verify(movieRepository).findByIdAndActiveTrue(movieId);
         verify(movieRepository, never()).save(any());
     }
 
@@ -196,14 +199,16 @@ class MovieServiceTest {
         movie.setId(movieId);
         movie.setTitle("Inception");
 
-        when(movieRepository.findById(movieId)).thenReturn(Optional.of(movie));
+        when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.of(movie));
 
         // When
         movieService.deleteMovie(movieId);
 
         // Then
-        verify(movieRepository).findById(movieId);
-        verify(movieRepository).deleteById(movieId);
+        verify(movieRepository).findByIdAndActiveTrue(movieId);
+        verify(movieRepository).save(movie);
+        assertFalse(movie.isActive());
+        assertNotNull(movie.getDeactivatedAt());
     }
 
     @Test
@@ -211,7 +216,7 @@ class MovieServiceTest {
     void deleteMovie_shouldThrowException_whenMovieNotFound() {
         // Given
         Long movieId = 999L;
-        when(movieRepository.findById(movieId)).thenReturn(Optional.empty());
+        when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(
@@ -219,15 +224,15 @@ class MovieServiceTest {
                 () -> movieService.deleteMovie(movieId)
         );
 
-        verify(movieRepository).findById(movieId);
-        verify(movieRepository, never()).deleteById(any());
+        verify(movieRepository).findByIdAndActiveTrue(movieId);
+        verify(movieRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("Should return empty list when no movies exist")
     void fetchAllMovies_shouldReturnEmptyList_whenNoMovies() {
         // Given
-        when(movieRepository.findAll()).thenReturn(List.of());
+        when(movieRepository.findAllByActiveTrue()).thenReturn(List.of());
 
         // When
         List<MovieResponseDTO> result = movieService.fetchAllMovies();
@@ -235,6 +240,6 @@ class MovieServiceTest {
         // Then
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(movieRepository).findAll();
+        verify(movieRepository).findAllByActiveTrue();
     }
 }

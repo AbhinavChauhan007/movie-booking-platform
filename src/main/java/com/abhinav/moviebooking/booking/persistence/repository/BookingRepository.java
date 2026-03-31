@@ -27,5 +27,13 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     );
 
     List<BookingEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+
+    @Query("""                                                                                                                                                                                 
+            SELECT COUNT(b) > 0 FROM BookingEntity b
+            JOIN SeatBookingEntity sb ON b.bookingId = sb.bookingId
+            WHERE sb.showId = :showId
+            AND b.bookingStatus IN ('INITIATED', 'CONFIRMED')
+            """)
+    boolean existsActiveBookingsByShowId(@Param("showId") Long showId);
 }
 

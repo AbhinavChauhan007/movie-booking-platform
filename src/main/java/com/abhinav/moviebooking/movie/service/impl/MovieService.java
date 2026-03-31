@@ -10,11 +10,11 @@ public interface MovieService {
 
     MovieResponseDTO createMovie(MovieRequestDTO request);
 
-    MovieResponseDTO updateMovie(Long movieId, MovieRequestDTO movieRequestDTO) throws MovieNotFoundException;
+    MovieResponseDTO updateMovie(Long movieId, MovieRequestDTO movieRequestDTO);
 
-    MovieResponseDTO fetchMovieById(Long id) throws MovieNotFoundException;
+    MovieResponseDTO fetchMovieById(Long id);
 
     List<MovieResponseDTO> fetchAllMovies();
 
-    void deleteMovie(Long id) throws MovieNotFoundException;
+    void deleteMovie(Long id);
 }

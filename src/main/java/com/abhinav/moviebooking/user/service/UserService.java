@@ -12,17 +12,17 @@ import java.util.Set;
 
 public interface UserService {
 
-    UserResponseDTO createUser(CreateUserRequestDTO userRequestDTO) throws UserAlreadyExistsException, RoleNotFoundException;
+    UserResponseDTO createUser(CreateUserRequestDTO userRequestDTO);
 
-    UserResponseDTO getUserById(Long id) throws UserNotFoundException;
+    UserResponseDTO getUserById(Long id);
 
     List<UserResponseDTO> getAllUsers();
 
-    void assignRoleToUser(Long userId, String roleName) throws UserNotFoundException, RoleNotFoundException;
+    void assignRoleToUser(Long userId, String roles);
 
-    void deleteUser(Long id) throws UserNotFoundException;
+    void deleteUser(Long id);
 
     List<RoleResponseDTO> getAllRoles();
 
-    Set<String> getUserRoles(Long userId) throws UserNotFoundException;
+    Set<String> getUserRoles(Long userId);
 }

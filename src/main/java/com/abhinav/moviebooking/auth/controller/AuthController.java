@@ -3,7 +3,11 @@ package com.abhinav.moviebooking.auth.controller;
 import com.abhinav.moviebooking.auth.dto.request.AuthRequest;
 import com.abhinav.moviebooking.auth.dto.request.RefreshTokenRequest;
 import com.abhinav.moviebooking.auth.dto.response.AuthResponse;
+import com.abhinav.moviebooking.common.dto.ApiResponse;
 import com.abhinav.moviebooking.security.JwtUtil;
+import com.abhinav.moviebooking.security.exception.ExpiredTokenException;
+import com.abhinav.moviebooking.security.exception.InvalidAuthorizationHeaderException;
+import com.abhinav.moviebooking.security.exception.InvalidTokenException;
 import com.abhinav.moviebooking.security.token.TokenBlackListService;
 import com.abhinav.moviebooking.security.token.entity.RefreshToken;
 import com.abhinav.moviebooking.security.token.service.RefreshTokenService;
@@ -50,7 +54,7 @@ public class AuthController {
             summary = "User login",
             description = "Authenticate user with email and password, returns JWT access token and refresh token"
     )
-    public ResponseEntity<AuthResponse> login(@RequestBody @Valid AuthRequest authRequest) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody @Valid AuthRequest authRequest) {
 
         // 1. Authenticate (DB hit happens INSIDE this call)
         Authentication authentication = authenticationManager.authenticate(
@@ -75,7 +79,11 @@ public class AuthController {
         RefreshToken refreshToken =
                 refreshTokenService.createRefreshToken(authRequest.getEmail(), roles);
 
-        return ResponseEntity.ok().body(new AuthResponse(accessToken, refreshToken.getToken()));
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "User logged in successfully", new AuthResponse(accessToken, refreshToken.getToken())
+                )
+        );
     }
 
     @PostMapping("/logout")
@@ -83,16 +91,15 @@ public class AuthController {
             summary = "User logout",
             description = "Blacklist the current JWT token to prevent further use"
     )
-    public ResponseEntity<String> logout(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
 
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity
-                    .badRequest()
-                    .body("Missing or invalid Authorization Header");
+            throw new InvalidAuthorizationHeaderException(
+                    "Missing or invalid Authorization header. Header must start with 'Bearer '"
+            );
         }
-
 
         try {
             // 2. Validate token (this MUST verify signature + expiry)
@@ -105,15 +112,13 @@ public class AuthController {
             // 3. clear security context
             SecurityContextHolder.clearContext();
 
-            return ResponseEntity.ok().body("Logged out successfully");
+            return ResponseEntity.ok(
+                    ApiResponse.success("Logged out successfully")
+            );
         } catch (ExpiredJwtException e) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("Expired JWT Token");
+            throw new ExpiredTokenException("JWT token has expired");
         } catch (JwtException e) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("Invalid JWT Token");
+            throw new InvalidTokenException("Invalid JWT token provided");
         }
     }
 
@@ -123,7 +128,7 @@ public class AuthController {
             summary = "Refresh access token",
             description = "Generate new access token and refresh token using existing refresh token"
     )
-    public ResponseEntity<AuthResponse> refresh(
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             @Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
 
         String refreshTokenValue = refreshTokenRequest.getRefreshToken();
@@ -148,8 +153,10 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(
-                new AuthResponse(newAccessToken, newRefreshToken.getToken())
-        );
+                ApiResponse.success(
+                        "Token refreshed successfully",
+                        new AuthResponse(newAccessToken, newRefreshToken.getToken())
+                ));
     }
 
 }

@@ -1,6 +1,9 @@
 package com.abhinav.moviebooking.security.token.service;
 
 
+import com.abhinav.moviebooking.security.exception.ExpiredRefreshTokenException;
+import com.abhinav.moviebooking.security.exception.InvalidRefreshTokenException;
+import com.abhinav.moviebooking.security.exception.RevokedRefreshTokenException;
 import com.abhinav.moviebooking.security.token.entity.RefreshToken;
 import com.abhinav.moviebooking.security.token.repository.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
@@ -39,13 +42,13 @@ public class RefreshTokenService {
 
     public RefreshToken validateRefreshToken(String token) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+                .orElseThrow(() -> new InvalidRefreshTokenException("Invalid refresh token"));
 
         if (refreshToken.isRevoked())
-            throw new RuntimeException("Refresh token revoked");
+            throw new RevokedRefreshTokenException("Refresh token revoked");
 
         if (refreshToken.getExpiry().isBefore(Instant.now()))
-            throw new RuntimeException("Refresh token expired");
+            throw new ExpiredRefreshTokenException("Refresh token expired");
 
         return refreshToken;
     }

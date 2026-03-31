@@ -39,7 +39,7 @@ public class BookingController {
      * Initiates a booking by bookingId.
      * Delegates to InitiatedState via BookingFacade.
      */
-    @PostMapping("/initiate")
+    @PostMapping("/initiateBooking")
     @Operation(
             summary = "Create a new booking",
             description = "Initiates a new movie ticket booking with seat allocation, pricing, and payment processing"

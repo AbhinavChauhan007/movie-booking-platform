@@ -2,6 +2,8 @@ package com.abhinav.moviebooking.movie.entity;
 
 import jakarta.persistence.*;
 
+import java.time.Instant;
+
 @Entity
 public class Movie {
 
@@ -17,6 +19,12 @@ public class Movie {
 
     @Column(name = "duration_mins" , nullable = false)
     private int durationMinutes;
+
+    @Column(name = "is_active")
+    private boolean active = true;
+
+    @Column(name = "deactivated_at")
+    private Instant deactivatedAt;
 
     // Default constructor - mandatory for Jackson
     public Movie() {
@@ -60,5 +68,21 @@ public class Movie {
 
     public void setDurationMinutes(int durationMinutes) {
         this.durationMinutes = durationMinutes;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public Instant getDeactivatedAt() {
+        return deactivatedAt;
+    }
+
+    public void setDeactivatedAt(Instant deactivatedAt) {
+        this.deactivatedAt = deactivatedAt;
     }
 }

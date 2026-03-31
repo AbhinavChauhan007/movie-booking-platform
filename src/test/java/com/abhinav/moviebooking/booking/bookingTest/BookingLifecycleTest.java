@@ -2,6 +2,7 @@ package com.abhinav.moviebooking.booking.bookingTest;
 
 import com.abhinav.moviebooking.booking.lifecycle.BookingLifecycle;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,7 +60,7 @@ public class BookingLifecycleTest {
     @MethodSource("invalidTransitions")
     @DisplayName("Should reject invalid booking state transitions")
     void shouldRejectInvalidTransition(BookingStatus from, BookingStatus to) {
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->BookingLifecycle.validTransition(
+        InvalidBookingStateException ex = assertThrows(InvalidBookingStateException.class, () ->BookingLifecycle.validTransition(
                 from,
                 to
         ));
@@ -82,7 +83,7 @@ public class BookingLifecycleTest {
 
         for (BookingStatus from : finalStates) {
             for (BookingStatus to : BookingStatus.values()) {
-                assertThrows(IllegalArgumentException.class, () ->
+                assertThrows(InvalidBookingStateException.class, () ->
                                 BookingLifecycle.validTransition(from, to),
                         "Transition should be blocked: " + from + " → " + to
                 );

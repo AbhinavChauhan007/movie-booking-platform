@@ -1,20 +1,24 @@
 package com.abhinav.moviebooking.user.service.impl;
 
+import com.abhinav.moviebooking.security.token.service.RefreshTokenService;
 import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
 import com.abhinav.moviebooking.user.dto.response.RoleResponseDTO;
 import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
 import com.abhinav.moviebooking.user.entity.Role;
 import com.abhinav.moviebooking.user.entity.User;
 import com.abhinav.moviebooking.user.exception.RoleNotFoundException;
+import com.abhinav.moviebooking.user.exception.RoleValidationException;
 import com.abhinav.moviebooking.user.exception.UserAlreadyExistsException;
 import com.abhinav.moviebooking.user.exception.UserNotFoundException;
 import com.abhinav.moviebooking.user.repository.RoleRepository;
 import com.abhinav.moviebooking.user.repository.UserRepository;
 import com.abhinav.moviebooking.user.service.UserService;
+import com.abhinav.moviebooking.util.ErrorCode;
 import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,17 +30,19 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final RefreshTokenService refreshTokenService;
 
     private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository, RoleRepository roleRepository, RefreshTokenService refreshTokenService, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.refreshTokenService = refreshTokenService;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
-    public UserResponseDTO createUser(CreateUserRequestDTO userRequestDTO) throws UserAlreadyExistsException, RoleNotFoundException {
+    public UserResponseDTO createUser(CreateUserRequestDTO userRequestDTO) {
 
         // Check username uniqueness
         if (userRepository.findByUsername(userRequestDTO.getUsername()).isPresent())
@@ -53,8 +59,8 @@ public class UserServiceImpl implements UserService {
         userToBeSaved.setPassword(passwordEncoder.encode(userRequestDTO.getPassword()));
 
         // Assign default role
-        Role userRole = roleRepository.findByName("ROLE_USER")
-                .orElseThrow(() -> new RoleNotFoundException("ROLE_USER"));
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new RoleNotFoundException("USER"));
 
         userToBeSaved.getRoles().add(userRole);
 
@@ -65,36 +71,73 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponseDTO getUserById(Long id) throws UserNotFoundException {
-        User user = userRepository.findById(id)
+    public UserResponseDTO getUserById(Long id) {
+        User user = userRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
         return mapToUserResponseDTO(user);
     }
 
     @Override
     public List<UserResponseDTO> getAllUsers() {
-        return userRepository.findAll()
+        return userRepository.findAllByActiveTrue()
                 .stream()
                 .map(this::mapToUserResponseDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public void assignRoleToUser(Long userId, String roleName) throws UserNotFoundException, RoleNotFoundException {
-        User user = userRepository.findById(userId)
+    public void assignRoleToUser(Long userId, String roles) {
+        User user = userRepository.findByIdAndActiveTrue(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
 
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new RoleNotFoundException(roleName));
+        String[] roleNames = roles.split(",");
 
-        user.getRoles().add(role);
+        if (roleNames.length == 0 || roles.trim().isEmpty())
+            throw new RoleValidationException(
+                    ErrorCode.INVALID_ROLE_FORMAT,
+                    "At least one role must be provided"
+            );
+
+        // get current roles
+        Set<String> currentRoleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+
+        for (String roleName : roleNames) {
+            String normalizedRoleName = roleName.trim().toUpperCase();
+
+            // Skip empty strings
+            if (normalizedRoleName.isEmpty()) {
+                continue;
+            }
+
+            // Check for duplicates
+            if (currentRoleNames.contains(normalizedRoleName)) {
+                throw new RoleValidationException(
+                        ErrorCode.DUPLICATE_ROLE,
+                        "User already has role: " + normalizedRoleName
+                );
+            }
+
+            Role role = roleRepository.findByName(normalizedRoleName)
+                    .orElseThrow(() -> new RoleNotFoundException(normalizedRoleName));
+
+            user.getRoles().add(role);
+            currentRoleNames.add(normalizedRoleName);
+        }
+
     }
 
     @Override
-    public void deleteUser(Long userId) throws UserNotFoundException {
-        User user = userRepository.findById(userId)
+    public void deleteUser(Long userId) {
+        User user = userRepository.findByIdAndActiveTrue(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        userRepository.delete(user);
+        user.setActive(false);
+        user.setDeactivatedAt(Instant.now());
+        userRepository.save(user);
+
+        // Revoke all refresh tokens for this user
+        refreshTokenService.revokeAllTokensForUser(user.getEmail());
     }
 
     @Override
@@ -107,9 +150,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Set<String> getUserRoles(Long userId) throws UserNotFoundException {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()-> new UserNotFoundException(userId));
+    public Set<String> getUserRoles(Long userId) {
+        User user = userRepository.findByIdAndActiveTrue(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
         return user.getRoles()
                 .stream()

@@ -2,6 +2,7 @@ package com.abhinav.moviebooking.booking.bookingTest;
 
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
 import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,8 +45,8 @@ public class BookingIdempotencyGuardTest {
         Booking booking = Booking.newBooking(TEST_USER_ID);
         booking.transitionTo(BookingStatus.CANCELLED);
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
+        InvalidBookingStateException ex = assertThrows(
+                InvalidBookingStateException.class,
                 () -> guard.checkExecutable(booking)
         );
 
@@ -57,8 +58,8 @@ public class BookingIdempotencyGuardTest {
         Booking booking = Booking.newBooking(TEST_USER_ID);
         booking.transitionTo(BookingStatus.EXPIRED);
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
+        InvalidBookingStateException ex = assertThrows(
+                InvalidBookingStateException.class,
                 () -> guard.checkExecutable(booking)
         );
 

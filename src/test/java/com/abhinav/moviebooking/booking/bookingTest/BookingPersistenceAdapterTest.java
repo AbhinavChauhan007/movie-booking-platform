@@ -3,6 +3,7 @@ package com.abhinav.moviebooking.booking.bookingTest;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.exception.BookingConcurrencyException;
+import com.abhinav.moviebooking.booking.exception.BookingNotFoundException;
 import com.abhinav.moviebooking.booking.persistence.adapter.BookingPersistenceAdapter;
 import com.abhinav.moviebooking.booking.persistence.entity.BookingEntity;
 import com.abhinav.moviebooking.booking.persistence.repository.BookingRepository;
@@ -90,7 +91,7 @@ class BookingPersistenceAdapterTest {
         when(entityManager.find(BookingEntity.class, bookingId)).thenReturn(null);
 
         // When & Then
-        assertThrows(IllegalStateException.class, () -> bookingPersistenceAdapter.save(booking));
+        assertThrows(BookingNotFoundException.class, () -> bookingPersistenceAdapter.save(booking));
         verify(entityManager).find(BookingEntity.class, bookingId);
     }
 

@@ -1,6 +1,7 @@
 package com.abhinav.moviebooking.booking.lifecycle;
 
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -33,21 +34,21 @@ public class BookingLifecycle {
     public static void validTransition(BookingStatus current, BookingStatus next) {
 
         if (current == null || next == null)
-            throw new IllegalArgumentException(
+            throw new InvalidBookingStateException(
                     "Booking status can not be null");
 
         if (current == next) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingStateException(
                     "Invalid booking transition from " + current + " to " + next
             );
         }
 
         if (current.isFinal())
-            throw new IllegalArgumentException(
+            throw new InvalidBookingStateException(
                     "Cannot transition from final state: " + current);
 
         if (!ALLOWED_TRANSITION.getOrDefault(current, EnumSet.noneOf(BookingStatus.class)).contains(next)) {
-            throw new IllegalArgumentException(
+            throw new InvalidBookingStateException(
                     "Invalid booking transition from " + current + " to " + next
             );
         }

@@ -3,6 +3,7 @@ package com.abhinav.moviebooking.user.entity;
 
 import jakarta.persistence.*;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -22,6 +23,12 @@ public class User {
 
     @Column(nullable = false)
     private String password;
+
+    @Column(name = "is_active")
+    private boolean active = true;
+
+    @Column(name = "deactivated_at")
+    private Instant deactivatedAt;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -72,5 +79,21 @@ public class User {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public Instant getDeactivatedAt() {
+        return deactivatedAt;
+    }
+
+    public void setDeactivatedAt(Instant deactivatedAt) {
+        this.deactivatedAt = deactivatedAt;
     }
 }

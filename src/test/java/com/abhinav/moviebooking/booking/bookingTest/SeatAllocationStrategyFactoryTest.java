@@ -1,5 +1,6 @@
 package com.abhinav.moviebooking.booking.bookingTest;
 
+import com.abhinav.moviebooking.booking.exception.InvalidSeatTypeException;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategy;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatAllocationStrategyFactory;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
@@ -59,11 +60,11 @@ public class SeatAllocationStrategyFactoryTest {
         SeatAllocationStrategyFactory factory = new SeatAllocationStrategyFactory(List.of(bestAvailableStrategy));
 
         // when + then
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
+        InvalidSeatTypeException ex = assertThrows(
+                InvalidSeatTypeException.class,
                 () -> factory.getStrategy(SeatType.FIRST_AVAILABLE));
 
-        assertEquals("No SeatAllocationStrategy found for type: FIRST_AVAILABLE",
+        assertEquals("No seat allocation strategy found for type: FIRST_AVAILABLE",
                 ex.getMessage());
     }
 

@@ -4,6 +4,9 @@ import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
 import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.InvalidBookingStateException;
+import com.abhinav.moviebooking.booking.exception.InvalidSeatCountException;
+import com.abhinav.moviebooking.booking.exception.PaymentException;
 import com.abhinav.moviebooking.booking.payment.PaymentConfirmationService;
 import com.abhinav.moviebooking.booking.payment.PaymentInitiationService;
 import com.abhinav.moviebooking.booking.payment.PaymentResult;
@@ -15,11 +18,14 @@ import com.abhinav.moviebooking.booking.workflow.guard.BookingIdempotencyGuard;
 import com.abhinav.moviebooking.event.BookingCancelledEvent;
 import com.abhinav.moviebooking.event.BookingConfirmedEvent;
 import com.abhinav.moviebooking.event.service.EventPublisher;
-import com.abhinav.moviebooking.movie.dto.response.MovieResponseDTO;
 import com.abhinav.moviebooking.movie.entity.Movie;
+import com.abhinav.moviebooking.movie.exception.MovieNotFoundException;
 import com.abhinav.moviebooking.movie.repository.MovieRepository;
 import com.abhinav.moviebooking.show.entity.Show;
+import com.abhinav.moviebooking.show.exception.ShowNotFoundException;
+import com.abhinav.moviebooking.show.exception.ShowValidationException;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
+import com.abhinav.moviebooking.util.ErrorCode;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -66,28 +72,32 @@ public class StandardBookingWorkflow extends BookingWorkflow {
     // ================= VALIDATION =================
 
     @Override
-    protected void validate(Booking booking, BookingExecutionContext context) {
+    protected void validate(Booking booking, BookingExecutionContext context) throws InvalidBookingStateException, InvalidSeatCountException, ShowValidationException {
         System.out.println("inside validate method");
         bookingIdempotencyGuard.checkExecutable(booking);
 
         if (context.getSeatCount() <= 0)
-            throw new IllegalArgumentException("Seat(s) must be more than zero");
+            throw new InvalidSeatCountException("Seat(s) must be more than zero");
 
         if (booking.getBookingStatus().isFinal())
-            throw new IllegalArgumentException("Booking is already in final state");
+            throw new InvalidBookingStateException("Booking is already in final state");
 
-        Show show = showRepository.findById(context.getShowId())
-                .orElseThrow(() -> new IllegalArgumentException("Show not found"));
+        Show show = showRepository.findByIdAndActiveTrue(context.getShowId())
+                .orElseThrow(() -> new ShowNotFoundException("Show not found"));
 
         // ✅ Fetch Movie using movieId from Show
-        Movie movie = movieRepository.findById(show.getMovieId())
-                .orElseThrow(() -> new IllegalArgumentException("Movie not found for show"));
+        Movie movie = movieRepository.findByIdAndActiveTrue(show.getMovieId())
+                .orElseThrow(() -> new MovieNotFoundException(show.getMovieId()));
 
         // ✅ Set movie title in context for Kafka event
         context.setMovieTitle(movie.getTitle());
 
         if (show.getStartTime().isBefore(Instant.now())) {
-            throw new IllegalStateException("Cannot book past shows");
+            throw new ShowValidationException(
+                    ErrorCode.PAST_SHOW_BOOKING,
+                    "Cannot book show " + show.getId() +
+                            ". Show time has already passed: " + show.getStartTime()
+            );
         }
 
         System.out.println("Validating booking request for bookingId : " + booking.getBookingId());
@@ -142,7 +152,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
         while (true) {
 
             if (Thread.currentThread().isInterrupted()) {
-                throw new IllegalStateException("Thread interrupted during payment");
+                throw new PaymentException(ErrorCode.PAYMENT_INTERRUPTED, "Thread interrupted during payment");
             }
 
             PaymentResult result = paymentInitiationService.initiatePayment(
@@ -158,12 +168,12 @@ public class StandardBookingWorkflow extends BookingWorkflow {
                     return;
                 }
 
-                case FAILED -> throw new IllegalStateException("Payment FAILED");
+                case FAILED -> throw new PaymentException(ErrorCode.PAYMENT_FAILED, "Payment failed");
 
                 case TIMEOUT -> {
                     attempt++;
                     if (attempt > MAX_PAYMENT_RETRIES) {
-                        throw new IllegalStateException("Payment TIMEOUT after retries");
+                        throw new PaymentException(ErrorCode.PAYMENT_TIMEOUT, "Payment TIMEOUT after retries");
                     }
 
                     System.out.println("Payment TIMEOUT, retry " + attempt);
@@ -249,7 +259,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Payment retry interrupted", e);
+            throw new PaymentException(ErrorCode.PAYMENT_INTERRUPTED, "Payment retry interrupted", e);
         }
     }
 }

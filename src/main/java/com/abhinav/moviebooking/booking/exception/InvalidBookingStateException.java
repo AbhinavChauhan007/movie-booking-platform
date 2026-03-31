@@ -1,7 +1,11 @@
 package com.abhinav.moviebooking.booking.exception;
 
-public class InvalidBookingStateException extends RuntimeException {
+import com.abhinav.moviebooking.common.exception.BusinessException;
+
+import static com.abhinav.moviebooking.util.ErrorCode.INVALID_BOOKING_STATE;
+
+public class InvalidBookingStateException extends BusinessException {
     public InvalidBookingStateException(String message) {
-        super(message);
+        super(INVALID_BOOKING_STATE,message);
     }
 }

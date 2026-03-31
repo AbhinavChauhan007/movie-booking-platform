@@ -4,6 +4,7 @@ import com.abhinav.moviebooking.booking.cancellation.BookingCancellationReason;
 import com.abhinav.moviebooking.booking.cancellation.BookingCancellationService;
 import com.abhinav.moviebooking.booking.domain.Booking;
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
+import com.abhinav.moviebooking.booking.exception.PaymentException;
 import com.abhinav.moviebooking.booking.payment.PaymentConfirmationService;
 import com.abhinav.moviebooking.booking.payment.PaymentInitiationService;
 import com.abhinav.moviebooking.booking.payment.PaymentResult;
@@ -16,6 +17,7 @@ import com.abhinav.moviebooking.event.service.EventPublisher;
 import com.abhinav.moviebooking.movie.entity.Movie;
 import com.abhinav.moviebooking.movie.repository.MovieRepository;
 import com.abhinav.moviebooking.show.entity.Show;
+import com.abhinav.moviebooking.show.exception.ShowValidationException;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,8 +85,8 @@ class StandardBookingWorkflowTest {
         movie.setId(1L);
         Show show = new Show(1L, Instant.now().plusSeconds(3600), 1, 100);
 
-        when(showRepository.findById(10L)).thenReturn(Optional.of(show));
-        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
+        when(showRepository.findByIdAndActiveTrue(10L)).thenReturn(Optional.of(show));
+        when(movieRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(movie));
 
         when(seatGrpcClient.allocateSeats(1L, 10L, 2))
                 .thenReturn(List.of("A1", "A2"));
@@ -124,10 +126,10 @@ class StandardBookingWorkflowTest {
         movie.setId(1L);
         Show pastShow = new Show(1L, Instant.now().minusSeconds(3600), 1, 100);
 
-        when(showRepository.findById(1L)).thenReturn(Optional.of(pastShow));
-        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
+        when(showRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(pastShow));
+        when(movieRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(movie));
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(ShowValidationException.class,
                 () -> workflow.execute(booking, context));
     }
 
@@ -147,8 +149,8 @@ class StandardBookingWorkflowTest {
         movie.setId(1L);
         Show show = new Show(1L, Instant.now().plusSeconds(3600), 1, 50);
 
-        when(showRepository.findById(1L)).thenReturn(Optional.of(show));
-        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
+        when(showRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(show));
+        when(movieRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(movie));
 
         when(seatGrpcClient.allocateSeats(anyLong(), anyLong(), anyInt()))
                 .thenReturn(List.of("B1"));
@@ -159,7 +161,7 @@ class StandardBookingWorkflowTest {
         when(paymentInitiationService.initiatePayment(any(), anyDouble(), anyString()))
                 .thenReturn(PaymentResult.failed());
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(PaymentException.class,
                 () -> workflow.execute(booking, context));
 
         // ✅ Seat released (showId is first parameter, bookingId is second)

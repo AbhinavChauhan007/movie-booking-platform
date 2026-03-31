@@ -1,5 +1,6 @@
 package com.abhinav.moviebooking.booking.seat.strategy;
 
+import com.abhinav.moviebooking.booking.exception.InvalidSeatTypeException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public class SeatAllocationStrategyFactory {
         SeatAllocationStrategy seatAllocationStrategy = seatAllocationStrategyMap.get(seatType);
 
         if (seatAllocationStrategy == null) {
-            throw new IllegalArgumentException("No SeatAllocationStrategy found for type: " + seatType);
+            throw new InvalidSeatTypeException(seatType.toString());
         }
         return seatAllocationStrategy;
     }

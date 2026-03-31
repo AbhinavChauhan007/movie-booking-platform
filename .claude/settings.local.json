@@ -6,7 +6,8 @@
       "Bash(mvn compile:*)",
       "Bash(mvn test:*)",
       "Bash(docker-compose up:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(find:*)"
     ]
   }
 }

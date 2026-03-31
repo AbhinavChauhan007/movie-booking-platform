@@ -1,5 +1,6 @@
 package com.abhinav.moviebooking.user.service;
 
+import com.abhinav.moviebooking.security.token.service.RefreshTokenService;
 import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
 import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
 import com.abhinav.moviebooking.user.entity.Role;
@@ -30,6 +31,7 @@ class UserServiceTest {
     private UserRepository userRepository;
     private RoleRepository roleRepository;
     private PasswordEncoder passwordEncoder;
+    private RefreshTokenService refreshTokenService;
     private UserServiceImpl userService;
 
     @BeforeEach
@@ -37,7 +39,8 @@ class UserServiceTest {
         userRepository = mock(UserRepository.class);
         roleRepository = mock(RoleRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
-        userService = new UserServiceImpl(userRepository, roleRepository, passwordEncoder);
+        refreshTokenService = mock(RefreshTokenService.class);
+        userService = new UserServiceImpl(userRepository, roleRepository, refreshTokenService, passwordEncoder);
     }
 
     @Test
@@ -50,11 +53,11 @@ class UserServiceTest {
         requestDTO.setPassword("password123");
 
         Role userRole = new Role();
-        userRole.setName("ROLE_USER");
+        userRole.setName("USER");
 
         when(userRepository.findByUsername("johndoe")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.empty());
-        when(roleRepository.findByName("ROLE_USER")).thenReturn(Optional.of(userRole));
+        when(roleRepository.findByName("USER")).thenReturn(Optional.of(userRole));
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
 
         // Mock save to capture and return the user being saved
@@ -72,10 +75,10 @@ class UserServiceTest {
         assertEquals(1L, result.getId());
         assertEquals("johndoe", result.getUsername());
         assertEquals("john@example.com", result.getEmail());
-        assertTrue(result.getRoles().contains("ROLE_USER"));
+        assertTrue(result.getRoles().contains("USER"));
         verify(userRepository).findByUsername("johndoe");
         verify(userRepository).findByEmail("john@example.com");
-        verify(roleRepository).findByName("ROLE_USER");
+        verify(roleRepository).findByName("USER");
         verify(passwordEncoder).encode("password123");
         verify(userRepository).save(any(User.class));
     }
@@ -143,7 +146,7 @@ class UserServiceTest {
 
         when(userRepository.findByUsername("johndoe")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.empty());
-        when(roleRepository.findByName("ROLE_USER")).thenReturn(Optional.empty());
+        when(roleRepository.findByName("USER")).thenReturn(Optional.empty());
 
         // When & Then
         RoleNotFoundException exception = assertThrows(
@@ -151,8 +154,8 @@ class UserServiceTest {
                 () -> userService.createUser(requestDTO)
         );
 
-        assertTrue(exception.getMessage().contains("ROLE_USER"));
-        verify(roleRepository).findByName("ROLE_USER");
+        assertTrue(exception.getMessage().contains("USER"));
+        verify(roleRepository).findByName("USER");
         verify(userRepository, never()).save(any());
     }
 
@@ -162,7 +165,7 @@ class UserServiceTest {
         // Given
         Long userId = 1L;
         Role userRole = new Role();
-        userRole.setName("ROLE_USER");
+        userRole.setName("USER");
 
         User user = new User();
         user.setId(userId);
@@ -170,7 +173,7 @@ class UserServiceTest {
         user.setEmail("john@example.com");
         user.setRoles(new HashSet<>(Set.of(userRole)));
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.of(user));
 
         // When
         UserResponseDTO result = userService.getUserById(userId);
@@ -180,8 +183,8 @@ class UserServiceTest {
         assertEquals(userId, result.getId());
         assertEquals("johndoe", result.getUsername());
         assertEquals("john@example.com", result.getEmail());
-        assertTrue(result.getRoles().contains("ROLE_USER"));
-        verify(userRepository).findById(userId);
+        assertTrue(result.getRoles().contains("USER"));
+        verify(userRepository).findByIdAndActiveTrue(userId);
     }
 
     @Test
@@ -189,7 +192,7 @@ class UserServiceTest {
     void getUserById_shouldThrowException_whenUserNotFound() {
         // Given
         Long userId = 999L;
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.empty());
 
         // When & Then
         UserNotFoundException exception = assertThrows(
@@ -198,7 +201,7 @@ class UserServiceTest {
         );
 
         assertTrue(exception.getMessage().contains("999"));
-        verify(userRepository).findById(userId);
+        verify(userRepository).findByIdAndActiveTrue(userId);
     }
 
     @Test
@@ -206,7 +209,7 @@ class UserServiceTest {
     void getAllUsers_shouldReturnListOfUsers() {
         // Given
         Role userRole = new Role();
-        userRole.setName("ROLE_USER");
+        userRole.setName("USER");
 
         User user1 = new User();
         user1.setId(1L);
@@ -220,7 +223,7 @@ class UserServiceTest {
         user2.setEmail("user2@example.com");
         user2.setRoles(new HashSet<>(Set.of(userRole)));
 
-        when(userRepository.findAll()).thenReturn(List.of(user1, user2));
+        when(userRepository.findAllByActiveTrue()).thenReturn(List.of(user1, user2));
 
         // When
         List<UserResponseDTO> result = userService.getAllUsers();
@@ -229,7 +232,7 @@ class UserServiceTest {
         assertEquals(2, result.size());
         assertEquals("user1", result.get(0).getUsername());
         assertEquals("user2", result.get(1).getUsername());
-        verify(userRepository).findAll();
+        verify(userRepository).findAllByActiveTrue();
     }
 
     @Test
@@ -237,20 +240,20 @@ class UserServiceTest {
     void assignRoleToUser_shouldAddRoleToUser() throws UserNotFoundException, RoleNotFoundException {
         // Given
         Long userId = 1L;
-        String roleName = "ROLE_ADMIN";
+        String roleName = "ADMIN";
 
         Role userRole = new Role();
-        userRole.setName("ROLE_USER");
+        userRole.setName("USER");
 
         Role adminRole = new Role();
-        adminRole.setName("ROLE_ADMIN");
+        adminRole.setName("ADMIN");
 
         User user = new User();
         user.setId(userId);
         user.setUsername("johndoe");
         user.setRoles(new HashSet<>(Set.of(userRole)));
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.of(user));
         when(roleRepository.findByName(roleName)).thenReturn(Optional.of(adminRole));
 
         // When
@@ -258,7 +261,7 @@ class UserServiceTest {
 
         // Then
         assertTrue(user.getRoles().contains(adminRole));
-        verify(userRepository).findById(userId);
+        verify(userRepository).findByIdAndActiveTrue(userId);
         verify(roleRepository).findByName(roleName);
     }
 
@@ -267,9 +270,9 @@ class UserServiceTest {
     void assignRoleToUser_shouldThrowException_whenUserNotFound() {
         // Given
         Long userId = 999L;
-        String roleName = "ROLE_ADMIN";
+        String roleName = "USER";
 
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(
@@ -277,7 +280,7 @@ class UserServiceTest {
                 () -> userService.assignRoleToUser(userId, roleName)
         );
 
-        verify(userRepository).findById(userId);
+        verify(userRepository).findByIdAndActiveTrue(userId);
         verify(roleRepository, never()).findByName(any());
     }
 
@@ -291,7 +294,7 @@ class UserServiceTest {
         User user = new User();
         user.setId(userId);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.of(user));
         when(roleRepository.findByName(roleName)).thenReturn(Optional.empty());
 
         // When & Then
@@ -300,7 +303,7 @@ class UserServiceTest {
                 () -> userService.assignRoleToUser(userId, roleName)
         );
 
-        verify(userRepository).findById(userId);
+        verify(userRepository).findByIdAndActiveTrue(userId);
         verify(roleRepository).findByName(roleName);
     }
 
@@ -313,14 +316,17 @@ class UserServiceTest {
         user.setId(userId);
         user.setUsername("johndoe");
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.of(user));
 
         // When
         userService.deleteUser(userId);
 
         // Then
-        verify(userRepository).findById(userId);
-        verify(userRepository).delete(user);
+        verify(userRepository).findByIdAndActiveTrue(userId);
+        verify(userRepository).save(user);
+        verify(refreshTokenService).revokeAllTokensForUser(user.getEmail());
+        assertFalse(user.isActive());
+        assertNotNull(user.getDeactivatedAt());
     }
 
     @Test
@@ -328,7 +334,7 @@ class UserServiceTest {
     void deleteUser_shouldThrowException_whenUserNotFound() {
         // Given
         Long userId = 999L;
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(
@@ -336,7 +342,7 @@ class UserServiceTest {
                 () -> userService.deleteUser(userId)
         );
 
-        verify(userRepository).findById(userId);
+        verify(userRepository).findByIdAndActiveTrue(userId);
         verify(userRepository, never()).delete(any());
     }
 
@@ -344,7 +350,7 @@ class UserServiceTest {
     @DisplayName("Should return empty list when no users exist")
     void getAllUsers_shouldReturnEmptyList_whenNoUsers() {
         // Given
-        when(userRepository.findAll()).thenReturn(List.of());
+        when(userRepository.findAllByActiveTrue()).thenReturn(List.of());
 
         // When
         List<UserResponseDTO> result = userService.getAllUsers();
@@ -352,6 +358,6 @@ class UserServiceTest {
         // Then
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(userRepository).findAll();
+        verify(userRepository).findAllByActiveTrue();
     }
 }
