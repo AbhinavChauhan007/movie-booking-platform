@@ -102,14 +102,18 @@ public class AuthController {
         }
 
         try {
-            // 2. Validate token (this MUST verify signature + expiry)
+            // 1. Validate token (this MUST verify signature + expiry)
             String accessToken = authHeader.substring(7);
+            String username = jwtUtil.extractUsername(accessToken);  // Extract username
             long expiry = jwtUtil.extractExpiration(accessToken);
 
             // 2. Blacklist ACCESS TOKEN
             blackListService.blackList(accessToken, expiry);
 
-            // 3. clear security context
+            // 3. Revoke ALL REFRESH TOKENS for this user
+            refreshTokenService.revokeAllTokensForUser(username);
+
+            // 4. clear security context
             SecurityContextHolder.clearContext();
 
             return ResponseEntity.ok(

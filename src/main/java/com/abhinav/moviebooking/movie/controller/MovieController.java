@@ -3,18 +3,19 @@ package com.abhinav.moviebooking.movie.controller;
 import com.abhinav.moviebooking.common.dto.ApiResponse;
 import com.abhinav.moviebooking.movie.dto.request.MovieRequestDTO;
 import com.abhinav.moviebooking.movie.dto.response.MovieResponseDTO;
-import com.abhinav.moviebooking.movie.exception.MovieNotFoundException;
 import com.abhinav.moviebooking.movie.service.impl.MovieServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/movies")
@@ -32,14 +33,28 @@ public class MovieController {
     @GetMapping("/getAllMovies")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     @Operation(
-            summary = "Get all movies",
-            description = "Retrieve complete list of all movies in the catalog"
+            summary = "Get all movies (paginated)",
+            description = "Retrieve movies with pagination, search, and filters. " +
+                    "Search by movie title, filter by genre, sort by any field."
     )
-    public ResponseEntity<ApiResponse<List<MovieResponseDTO>>> fetchAllMovies() {
+    public ResponseEntity<ApiResponse<Page<MovieResponseDTO>>> getAllMovies(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id,desc") String[] sort,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String genre
+    ) {
+        // Parse sort parameters
+        Sort.Order order = sort.length > 1
+                ? new Sort.Order(Sort.Direction.fromString(sort[1]), sort[0])
+                : new Sort.Order(Sort.Direction.DESC, sort[0]);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(order));
+
+        Page<MovieResponseDTO> movies = movieService.fetchAllMovies(pageable, search, genre);
+
         return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Movies retrieved successfully", movieService.fetchAllMovies()
-                )
+                ApiResponse.success("Movies retrieved successfully", movies)
         );
     }
 
@@ -84,7 +99,7 @@ public class MovieController {
             summary = "Update movie (Admin only)",
             description = "Update existing movie details"
     )
-    public ResponseEntity<ApiResponse<MovieResponseDTO>> updateMovie(@PathVariable Long id, @RequestBody @Valid MovieRequestDTO updatedMovieRequestDTO)  {
+    public ResponseEntity<ApiResponse<MovieResponseDTO>> updateMovie(@PathVariable Long id, @RequestBody @Valid MovieRequestDTO updatedMovieRequestDTO) {
         return ResponseEntity.ok(
                 ApiResponse.success("Movie updated successfully", movieService.updateMovie(id, updatedMovieRequestDTO))
         );

@@ -127,4 +127,15 @@ public class BookingFacade {
     public BookingStatus getStatus(Long bookingId) {
         return bookingReadService.getBooking(bookingId).getBookingStatus();
     }
+
+    /**
+     * Verify that a booking belongs to the specified user
+     * @throws SecurityException if booking doesn't belong to user
+     */
+    public void verifyBookingOwnership(Long bookingId, Long userId) {
+        Booking booking = bookingReadService.getBooking(bookingId);
+        if (!booking.getUserId().equals(userId)) {
+            throw new SecurityException("Unauthorized access to booking " + bookingId);
+        }
+    }
 }

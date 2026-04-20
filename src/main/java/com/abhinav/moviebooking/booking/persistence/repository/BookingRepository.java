@@ -2,6 +2,7 @@ package com.abhinav.moviebooking.booking.persistence.repository;
 
 import com.abhinav.moviebooking.booking.domain.BookingStatus;
 import com.abhinav.moviebooking.booking.persistence.entity.BookingEntity;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -26,9 +27,13 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
             Pageable pageable
     );
 
-    List<BookingEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+    // Paginated query for user bookings
+    Page<BookingEntity> findAllByUserId(Long userId, Pageable pageable);
 
-    @Query("""                                                                                                                                                                                 
+    // Paginated query for user bookings with status filter
+    Page<BookingEntity> findAllByUserIdAndBookingStatus(Long userId, BookingStatus status, Pageable pageable);
+
+    @Query("""
             SELECT COUNT(b) > 0 FROM BookingEntity b
             JOIN SeatBookingEntity sb ON b.bookingId = sb.bookingId
             WHERE sb.showId = :showId

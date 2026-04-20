@@ -1,5 +1,8 @@
 package com.abhinav.moviebooking.booking.payment;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.io.Serializable;
 
 public class PaymentResult implements Serializable {
@@ -7,13 +10,16 @@ public class PaymentResult implements Serializable {
     private final PaymentStatus status;
     private final String transactionId;
 
-    public PaymentResult(PaymentStatus status, String transactionId) {
+    @JsonCreator
+    public PaymentResult(
+            @JsonProperty("status") PaymentStatus status,
+            @JsonProperty("transactionId") String transactionId) {
         this.status = status;
         this.transactionId = transactionId;
     }
 
-    public static PaymentResult success(String txnId){
-        return new PaymentResult(PaymentStatus.SUCCESS,txnId);
+    public static PaymentResult success(String txnId) {
+        return new PaymentResult(PaymentStatus.SUCCESS, txnId);
     }
 
     public static PaymentResult failed() {

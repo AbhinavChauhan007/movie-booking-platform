@@ -27,6 +27,7 @@ public enum ErrorCode {
     BOOKING_NOT_FOUND("BOOKING_NOT_FOUND", "Booking Could Not Be Found"),
     BOOKING_CONFLICT("BOOKING_CONFLICT", "You Already Have a Booking for This Show"),
     INVALID_BOOKING_STATE("INVALID_BOOKING_STATE", "This Action Cannot Be Performed on Your Booking"),
+    INVALID_BOOKING_STATUS("INVALID_BOOKING_STATUS", "Invalid Booking Status Provided"),
 
     // Authentication & Authorization
     BAD_CREDENTIALS("BAD_CREDENTIALS", "Incorrect Email or Password"),

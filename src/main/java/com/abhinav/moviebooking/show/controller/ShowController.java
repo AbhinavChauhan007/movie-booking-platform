@@ -9,16 +9,20 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/admin/shows")
-@PreAuthorize("hasRole('ADMIN')")
 @SecurityRequirement(name = "Bearer Authentication")
 @Tag(name = "Shows (Admin)", description = "Movie show scheduling and management (Admin only)")
 public class ShowController {
@@ -30,6 +34,7 @@ public class ShowController {
     }
 
     @PostMapping("/createShow")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
             summary = "Create show",
             description = "Schedule a new movie show with start time, screen number, and total seats"
@@ -45,21 +50,39 @@ public class ShowController {
                 );
     }
 
+    // GET /admin/shows/getAllShows - Admin version (paginated)
     @GetMapping("/getAllShows")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     @Operation(
-            summary = "Get all active shows",
-            description = "Retrieve all currently active shows for management purposes"
+            summary = "Get all shows (paginated)",
+            description = "Retrieve shows with pagination and filters for admin management"
     )
-    public ResponseEntity<ApiResponse<List<Show>>> getAllActiveShows() {
+    public ResponseEntity<ApiResponse<Page<Show>>> getAllShows(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "startTime,asc") String[] sort,
+            @RequestParam(required = false) Long movieId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
+            @RequestParam(required = false) Integer screenNumber,
+            @RequestParam(required = false) Boolean futureOnly
+    ) {
+        Sort.Order order = sort.length > 1
+                ? new Sort.Order(Sort.Direction.fromString(sort[1]), sort[0])
+                : new Sort.Order(Sort.Direction.ASC, sort[0]);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(order));
+
+        Page<Show> shows = showService.getAllActiveShows(pageable, movieId, startDate, endDate,
+                screenNumber, futureOnly);
+
         return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Shows retrieved successfully",
-                        showService.getAllActiveShows()
-                )
+                ApiResponse.success("Shows retrieved successfully", shows)
         );
     }
 
     @GetMapping("/getShow/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     @Operation(
             summary = "Get show by ID",
             description = "Retrieve detailed information about a specific show"
@@ -73,21 +96,8 @@ public class ShowController {
         );
     }
 
-    @GetMapping("/getUpcomingShows")
-    @Operation(
-            summary = "Get future shows",
-            description = "Retrieve all upcoming shows that are available for booking"
-    )
-    public ResponseEntity<ApiResponse<List<Show>>> getUpcomingShows() {
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Future shows retrieved successfully",
-                        showService.getFutureShows()
-                )
-        );
-    }
-
     @PutMapping("/updateShow/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
             summary = "Update show",
             description = "Update show start time and screen number. Only allowed if no bookings exist for the show."
@@ -105,6 +115,7 @@ public class ShowController {
     }
 
     @DeleteMapping("/deleteShow/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
             summary = "Cancel show",
             description = "Cancel a scheduled show (soft delete). Note: Handle existing bookings separately if needed."
@@ -116,4 +127,3 @@ public class ShowController {
         );
     }
 }
-

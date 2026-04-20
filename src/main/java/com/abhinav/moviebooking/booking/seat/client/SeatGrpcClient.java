@@ -32,7 +32,7 @@ public class SeatGrpcClient {
             return GrpcRetryExecutor.executeWithRetry(
                     () ->
                             seatServiceBlockingStub
-                                    .withDeadlineAfter(250, TimeUnit.MILLISECONDS)
+                                    .withDeadlineAfter(2000, TimeUnit.MILLISECONDS)
                                     .allocateSeats(request)
                                     .getSeatNumbersList(), 2
             );
@@ -55,7 +55,7 @@ public class SeatGrpcClient {
 
         try {
             seatServiceBlockingStub
-                    .withDeadlineAfter(100, TimeUnit.MILLISECONDS)
+                    .withDeadlineAfter(2000, TimeUnit.MILLISECONDS)
                     .releaseSeats(request);
         } catch (StatusRuntimeException e) {
             throw SeatGrpcExceptionMapper.map(e);

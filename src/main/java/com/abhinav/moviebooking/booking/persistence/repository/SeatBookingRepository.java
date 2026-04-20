@@ -18,4 +18,6 @@ public interface SeatBookingRepository extends JpaRepository<SeatBookingEntity, 
     List<String> findBookedSeats(@Param("showId") Long showId);
 
     List<SeatBookingEntity> findAllByBookingId(Long bookingId);
+
+    List<SeatBookingEntity> findAllByBookingIdIn(List<Long> bookingIds);
 }

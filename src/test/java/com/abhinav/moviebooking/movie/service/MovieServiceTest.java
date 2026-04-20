@@ -10,6 +10,10 @@ import com.abhinav.moviebooking.show.repository.ShowRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,8 +36,8 @@ class MovieServiceTest {
     }
 
     @Test
-    @DisplayName("Should fetch all movies successfully")
-    void fetchAllMovies_shouldReturnListOfMovies() {
+    @DisplayName("Should fetch all movies successfully with pagination")
+    void fetchAllMovies_shouldReturnPageOfMovies() {
         // Given
         Movie movie1 = new Movie();
         movie1.setId(1L);
@@ -47,16 +51,92 @@ class MovieServiceTest {
         movie2.setGenre("Action");
         movie2.setDurationMinutes(136);
 
-        when(movieRepository.findAllByActiveTrue()).thenReturn(List.of(movie1, movie2));
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Movie> moviePage = new PageImpl<>(List.of(movie1, movie2), pageable, 2);
+
+        when(movieRepository.findAllByActiveTrue(pageable)).thenReturn(moviePage);
 
         // When
-        List<MovieResponseDTO> result = movieService.fetchAllMovies();
+        Page<MovieResponseDTO> result = movieService.fetchAllMovies(pageable, null, null);
 
         // Then
-        assertEquals(2, result.size());
-        assertEquals("Inception", result.get(0).getTitle());
-        assertEquals("The Matrix", result.get(1).getTitle());
-        verify(movieRepository).findAllByActiveTrue();
+        assertEquals(2, result.getContent().size());
+        assertEquals("Inception", result.getContent().get(0).getTitle());
+        assertEquals("The Matrix", result.getContent().get(1).getTitle());
+        verify(movieRepository).findAllByActiveTrue(pageable);
+    }
+
+    @Test
+    @DisplayName("Should fetch movies by title search with pagination")
+    void fetchAllMovies_shouldReturnPageByTitleSearch() {
+        // Given
+        Movie movie1 = new Movie();
+        movie1.setId(1L);
+        movie1.setTitle("Inception");
+        movie1.setGenre("Sci-Fi");
+        movie1.setDurationMinutes(148);
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Movie> moviePage = new PageImpl<>(List.of(movie1), pageable, 1);
+
+        when(movieRepository.searchByTitle("Inception", pageable)).thenReturn(moviePage);
+
+        // When
+        Page<MovieResponseDTO> result = movieService.fetchAllMovies(pageable, "Inception", null);
+
+        // Then
+        assertEquals(1, result.getContent().size());
+        assertEquals("Inception", result.getContent().get(0).getTitle());
+        verify(movieRepository).searchByTitle("Inception", pageable);
+    }
+
+    @Test
+    @DisplayName("Should fetch movies by genre filter with pagination")
+    void fetchAllMovies_shouldReturnPageByGenreFilter() {
+        // Given
+        Movie movie1 = new Movie();
+        movie1.setId(1L);
+        movie1.setTitle("Inception");
+        movie1.setGenre("Sci-Fi");
+        movie1.setDurationMinutes(148);
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Movie> moviePage = new PageImpl<>(List.of(movie1), pageable, 1);
+
+        when(movieRepository.findByActiveTrueAndGenreIgnoreCase("Sci-Fi", pageable)).thenReturn(moviePage);
+
+        // When
+        Page<MovieResponseDTO> result = movieService.fetchAllMovies(pageable, null, "Sci-Fi");
+
+        // Then
+        assertEquals(1, result.getContent().size());
+        assertEquals("Sci-Fi", result.getContent().get(0).getGenre());
+        verify(movieRepository).findByActiveTrueAndGenreIgnoreCase("Sci-Fi", pageable);
+    }
+
+    @Test
+    @DisplayName("Should fetch movies by title search and genre filter with pagination")
+    void fetchAllMovies_shouldReturnPageByTitleAndGenre() {
+        // Given
+        Movie movie1 = new Movie();
+        movie1.setId(1L);
+        movie1.setTitle("Inception");
+        movie1.setGenre("Sci-Fi");
+        movie1.setDurationMinutes(148);
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Movie> moviePage = new PageImpl<>(List.of(movie1), pageable, 1);
+
+        when(movieRepository.searchByTitleAndFilterByGenre("Inception", "Sci-Fi", pageable)).thenReturn(moviePage);
+
+        // When
+        Page<MovieResponseDTO> result = movieService.fetchAllMovies(pageable, "Inception", "Sci-Fi");
+
+        // Then
+        assertEquals(1, result.getContent().size());
+        assertEquals("Inception", result.getContent().get(0).getTitle());
+        assertEquals("Sci-Fi", result.getContent().get(0).getGenre());
+        verify(movieRepository).searchByTitleAndFilterByGenre("Inception", "Sci-Fi", pageable);
     }
 
     @Test
@@ -153,6 +233,7 @@ class MovieServiceTest {
         updatedMovie.setDurationMinutes(150);
 
         when(movieRepository.findByIdAndActiveTrue(movieId)).thenReturn(Optional.of(existingMovie));
+        when(showRepository.existsByMovieIdAndActiveTrue(movieId)).thenReturn(false);
         when(movieRepository.save(any(Movie.class))).thenReturn(updatedMovie);
 
         // When
@@ -229,17 +310,21 @@ class MovieServiceTest {
     }
 
     @Test
-    @DisplayName("Should return empty list when no movies exist")
-    void fetchAllMovies_shouldReturnEmptyList_whenNoMovies() {
+    @DisplayName("Should return empty page when no movies exist")
+    void fetchAllMovies_shouldReturnEmptyPage_whenNoMovies() {
         // Given
-        when(movieRepository.findAllByActiveTrue()).thenReturn(List.of());
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Movie> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        when(movieRepository.findAllByActiveTrue(pageable)).thenReturn(emptyPage);
 
         // When
-        List<MovieResponseDTO> result = movieService.fetchAllMovies();
+        Page<MovieResponseDTO> result = movieService.fetchAllMovies(pageable, null, null);
 
         // Then
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(movieRepository).findAllByActiveTrue();
+        assertEquals(0, result.getTotalElements());
+        verify(movieRepository).findAllByActiveTrue(pageable);
     }
 }

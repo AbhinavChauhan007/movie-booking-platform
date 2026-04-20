@@ -13,6 +13,8 @@ import com.abhinav.moviebooking.show.exception.ShowValidationException;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
 import com.abhinav.moviebooking.util.ErrorCode;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -57,12 +59,41 @@ public class ShowService {
                 .orElseThrow(() -> new ShowNotFoundException(id.toString()));
     }
 
-    public java.util.List<Show> getAllActiveShows() {
-        return showRepository.findAllByActiveTrue();
-    }
+    // Paginated methods with filters
+    public Page<Show> getAllActiveShows(Pageable pageable, Long movieId, Instant startDate,
+                                        Instant endDate, Integer screenNumber, Boolean futureOnly) {
+        Instant now = Instant.now();
 
-    public java.util.List<Show> getFutureShows() {
-        return showRepository.findAllFutureShows(Instant.now());
+        // Future shows only filter
+        if (futureOnly != null && futureOnly) {
+            if (movieId != null) {
+                return showRepository.findFutureShowsByMovieId(movieId, now, pageable);
+            }
+            return showRepository.findFutureShows(now, pageable);
+        }
+
+        // Combined filters: movieId + date range
+        if (movieId != null && startDate != null && endDate != null) {
+            return showRepository.findByMovieIdAndDateRange(movieId, startDate, endDate, pageable);
+        }
+
+        // Filter by movieId only
+        if (movieId != null) {
+            return showRepository.findByMovieIdAndActiveTrue(movieId, pageable);
+        }
+
+        // Filter by date range only
+        if (startDate != null && endDate != null) {
+            return showRepository.findByDateRange(startDate, endDate, pageable);
+        }
+
+        // Filter by screen number only
+        if (screenNumber != null) {
+            return showRepository.findByActiveTrueAndScreenNumber(screenNumber, pageable);
+        }
+
+        // No filters - return all active shows
+        return showRepository.findAllByActiveTrue(pageable);
     }
 
     @Transactional
