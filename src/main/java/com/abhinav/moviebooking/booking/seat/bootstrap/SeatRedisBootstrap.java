@@ -3,6 +3,8 @@ package com.abhinav.moviebooking.booking.seat.bootstrap;
 import com.abhinav.moviebooking.booking.seat.core.SeatService;
 import com.abhinav.moviebooking.show.entity.Show;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,6 +18,7 @@ import java.time.Instant;
 @Component
 public class SeatRedisBootstrap {
 
+    private static final Logger log = LoggerFactory.getLogger(SeatRedisBootstrap.class);
     private static final String SHOW_SEATS_KEY = "show:%d:available_seats";
     private static final int BATCH_SIZE = 100;
 
@@ -36,7 +39,7 @@ public class SeatRedisBootstrap {
 
     @EventListener(ApplicationReadyEvent.class)
     public void rehydrateSeats() {
-        System.out.println(("Rehydrating seats for future shows"));
+        log.info("Rehydrating seats for future shows");
 
         int pageNumber = 0, totalProcessed = 0;
         Page<Show> showPage;
@@ -54,22 +57,22 @@ public class SeatRedisBootstrap {
                                 show.getId(),
                                 show.getTotalSeats()
                         );
-                        System.out.println("Initialized seats for show ID: " + show.getId());
+                        log.debug("Initialized seats for show ID: {}", show.getId());
                     }
                 } catch (Exception e) {
-                    System.out.printf("Failed to initialize seats for show ID: {}. Error: {}",
+                    log.error("Failed to initialize seats for show ID: {}. Error: {}",
                             show.getId(), e.getMessage(), e);
                 }
             });
             totalProcessed += showPage.getNumberOfElements();
             pageNumber++;
 
-            System.out.println("Processed page " + pageNumber + " of " + showPage.getTotalPages() +
-                    " (" + totalProcessed + "/" + showPage.getTotalElements() + " shows)");
+            log.info("Processed page {} of {} ({}/{} shows)",
+                    pageNumber, showPage.getTotalPages(), totalProcessed, showPage.getTotalElements());
 
         } while (showPage.hasNext());
 
-        System.out.println("Seat rehydration completed for " + showPage.getTotalElements() + " shows");
+        log.info("Seat rehydration completed for {} shows", showPage.getTotalElements());
 
     }
 }

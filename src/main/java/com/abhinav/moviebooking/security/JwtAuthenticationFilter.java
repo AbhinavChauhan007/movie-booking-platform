@@ -8,6 +8,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -23,6 +25,8 @@ import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtUtil jwtUtil;
     private final TokenBlackListService blackListService;
@@ -54,10 +58,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        System.out.println("🔐 JwtAuthenticationFilter - Path: " + request.getServletPath());
+        log.debug("JwtAuthenticationFilter - Path: {}", request.getServletPath());
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("No token present");
+            log.debug("No token present");
             filterChain.doFilter(request, response);
             return;
         }
@@ -66,20 +70,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 1. Check blacklist
         if (blackListService.isBlackListed(jwtToken)) {
-            System.out.println("❌ Token is blacklisted");
+            log.warn("Token is blacklisted");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         try {
             String username = jwtUtil.extractUsername(jwtToken);
-            System.out.println("📧 Username from token: " + username);
+            log.debug("Username from token: {}", username);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 // ✅ LOAD FULL USER DETAILS (including userId)
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                System.out.println("👤 Loaded CustomUserDetails for: " + username);
+                log.debug("Loaded CustomUserDetails for: {}", username);
 
 //                Set<String> roles = jwtUtil.extractRoles(jwtToken);
 //
@@ -96,7 +100,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                System.out.println("✅ Authentication set successfully");
+                log.debug("Authentication set successfully");
             }
 
         } catch (ExpiredJwtException | MalformedJwtException | UnsupportedJwtException | IllegalArgumentException e) {
@@ -105,7 +109,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("alpha -> " + authentication.toString());
+        log.debug("Authentication: {}", authentication);
 
         filterChain.doFilter(request, response);
     }

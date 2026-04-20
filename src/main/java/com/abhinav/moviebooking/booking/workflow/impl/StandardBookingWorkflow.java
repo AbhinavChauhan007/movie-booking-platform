@@ -26,6 +26,8 @@ import com.abhinav.moviebooking.show.exception.ShowNotFoundException;
 import com.abhinav.moviebooking.show.exception.ShowValidationException;
 import com.abhinav.moviebooking.show.repository.ShowRepository;
 import com.abhinav.moviebooking.util.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -36,6 +38,7 @@ import java.util.List;
 @Component
 public class StandardBookingWorkflow extends BookingWorkflow {
 
+    private static final Logger log = LoggerFactory.getLogger(StandardBookingWorkflow.class);
     private static final int MAX_PAYMENT_RETRIES = 2;
 
     private final BookingIdempotencyGuard bookingIdempotencyGuard;
@@ -73,7 +76,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
 
     @Override
     protected void validate(Booking booking, BookingExecutionContext context) throws InvalidBookingStateException, InvalidSeatCountException, ShowValidationException {
-        System.out.println("inside validate method");
+        log.debug("inside validate method");
         bookingIdempotencyGuard.checkExecutable(booking);
 
         if (context.getSeatCount() <= 0)
@@ -100,7 +103,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
             );
         }
 
-        System.out.println("Validating booking request for bookingId : " + booking.getBookingId());
+        log.debug("Validating booking request for bookingId: {}", booking.getBookingId());
     }
 
     // ================= SEAT ALLOCATION =================
@@ -118,10 +121,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
         context.setAllocatedSeats(allocatedSeats);
         booking.transitionTo(BookingStatus.INITIATED);
 
-        System.out.println(
-                "Booking " + booking.getBookingId() +
-                        " allocated seats " + allocatedSeats
-        );
+        log.info("Booking {} allocated seats {}", booking.getBookingId(), allocatedSeats);
     }
 
     // ================= PRICING =================
@@ -138,7 +138,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
         );
 
         context.setFinalPrice(finalPrice);
-        System.out.println("Final price = " + finalPrice);
+        log.info("Final price: {}", finalPrice);
     }
 
     // ================= PAYMENT =================
@@ -164,7 +164,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
             switch (result.getStatus()) {
 
                 case SUCCESS -> {
-                    System.out.println("Payment SUCCESS, txnId=" + result.getTransactionId());
+                    log.info("Payment SUCCESS, txnId: {}", result.getTransactionId());
                     return;
                 }
 
@@ -176,7 +176,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
                         throw new PaymentException(ErrorCode.PAYMENT_TIMEOUT, "Payment TIMEOUT after retries");
                     }
 
-                    System.out.println("Payment TIMEOUT, retry " + attempt);
+                    log.warn("Payment TIMEOUT, retry attempt: {}", attempt);
                     sleepSafely(100L * attempt);
                 }
             }
@@ -198,7 +198,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
                 context.getFinalPrice()
         );
         eventPublisher.publishEvent(event);
-        System.out.println("Booking " + booking.getBookingId() + " CONFIRMED");
+        log.info("Booking {} CONFIRMED", booking.getBookingId());
     }
 
     // ================= COMPENSATION =================
@@ -241,10 +241,7 @@ public class StandardBookingWorkflow extends BookingWorkflow {
                 context.getAllocatedSeats()
         );
 
-        System.out.println(
-                "Released seats " + context.getAllocatedSeats() +
-                        " for booking " + booking.getBookingId()
-        );
+        log.info("Released seats {} for booking {}", context.getAllocatedSeats(), booking.getBookingId());
     }
 
     // ================= HELPERS =================

@@ -11,6 +11,9 @@ import com.abhinav.moviebooking.security.exception.InvalidTokenException;
 import com.abhinav.moviebooking.security.token.TokenBlackListService;
 import com.abhinav.moviebooking.security.token.entity.RefreshToken;
 import com.abhinav.moviebooking.security.token.service.RefreshTokenService;
+import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
+import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
+import com.abhinav.moviebooking.user.service.UserService;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,12 +44,14 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final TokenBlackListService blackListService;
     private final RefreshTokenService refreshTokenService;
+    private final UserService userService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, TokenBlackListService blackListService, RefreshTokenService refreshTokenService) {
+    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, TokenBlackListService blackListService, RefreshTokenService refreshTokenService, UserService userService) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.blackListService = blackListService;
         this.refreshTokenService = refreshTokenService;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
@@ -124,6 +129,19 @@ public class AuthController {
         } catch (JwtException e) {
             throw new InvalidTokenException("Invalid JWT token provided");
         }
+    }
+
+    // PUBLIC (usually signup is via AuthController)
+    @PostMapping("/createUser")
+    @Operation(
+            summary = "Register new user",
+            description = "Create a new user account with email, password, and name"
+    )
+    public ResponseEntity<ApiResponse<UserResponseDTO>> createUser(@RequestBody @Valid CreateUserRequestDTO createUserRequestDTO) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success("User created successfully", userService.createUser(createUserRequestDTO)));
+
     }
 
 

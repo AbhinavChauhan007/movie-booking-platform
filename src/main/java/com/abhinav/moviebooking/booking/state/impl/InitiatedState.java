@@ -1,12 +1,16 @@
 package com.abhinav.moviebooking.booking.state.impl;
 
 import com.abhinav.moviebooking.booking.state.BookingState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class InitiatedState implements BookingState {
+    private static final Logger log = LoggerFactory.getLogger(InitiatedState.class);
+
     @Override
     public void handle(Long bookingId) {
-        System.out.println("Booking " + bookingId + " is INITIATED");
+        log.info("Booking {} is INITIATED", bookingId);
     }
 }

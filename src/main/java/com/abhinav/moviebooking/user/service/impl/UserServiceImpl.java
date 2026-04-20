@@ -15,6 +15,8 @@ import com.abhinav.moviebooking.user.repository.UserRepository;
 import com.abhinav.moviebooking.user.service.UserService;
 import com.abhinav.moviebooking.util.ErrorCode;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -78,11 +80,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<UserResponseDTO> getAllUsers() {
-        return userRepository.findAllByActiveTrue()
-                .stream()
-                .map(this::mapToUserResponseDTO)
-                .collect(Collectors.toList());
+    public Page<UserResponseDTO> getAllUsers(Pageable pageable) {
+        return userRepository.findAllByActiveTrue(pageable)
+                .map(this::mapToUserResponseDTO);
+
     }
 
     @Override
@@ -145,7 +146,7 @@ public class UserServiceImpl implements UserService {
         return roleRepository.findAll()
                 .stream()
                 .map(role -> new RoleResponseDTO(role.getId(), role.getName()))
-                .collect(Collectors.toList());
+                .toList();
 
     }
 

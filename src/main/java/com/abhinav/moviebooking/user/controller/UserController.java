@@ -5,16 +5,15 @@ import com.abhinav.moviebooking.common.dto.ApiResponse;
 import com.abhinav.moviebooking.user.dto.request.AssignRoleRequest;
 import com.abhinav.moviebooking.user.dto.response.RoleResponseDTO;
 import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
-import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
-import com.abhinav.moviebooking.user.exception.RoleNotFoundException;
-import com.abhinav.moviebooking.user.exception.UserAlreadyExistsException;
-import com.abhinav.moviebooking.user.exception.UserNotFoundException;
 import com.abhinav.moviebooking.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -41,16 +40,26 @@ public class UserController {
             summary = "Get all users (Admin only)",
             description = "Retrieve a list of all registered users"
     )
-    public ResponseEntity<ApiResponse<List<UserResponseDTO>>> getAllUsers() {
+    public ResponseEntity<ApiResponse<Page<UserResponseDTO>>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "userId,asc") String[] sort
+    ) {
+        // Parse sort parameters
+        Sort.Order order = sort.length > 1
+                ? new Sort.Order(Sort.Direction.fromString(sort[1]), sort[0])
+                : new Sort.Order(Sort.Direction.ASC, sort[0]);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(order));
         return ResponseEntity
                 .ok(
-                        ApiResponse.success("Users retrieved successfully", userService.getAllUsers())
+                        ApiResponse.success("Users retrieved successfully", userService.getAllUsers(pageable))
                 );
 
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("getUserById/{userId}")
+    @GetMapping("/getUserById/{userId}")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(
             summary = "Get user by ID (Admin only)",
@@ -61,19 +70,6 @@ public class UserController {
                 .ok(
                         ApiResponse.success("User retrieved successfully", userService.getUserById(userId))
                 );
-
-    }
-
-    // PUBLIC (usually signup is via AuthController)
-    @PostMapping("/createUser")
-    @Operation(
-            summary = "Register new user",
-            description = "Create a new user account with email, password, and name"
-    )
-    public ResponseEntity<ApiResponse<UserResponseDTO>> createUser(@RequestBody @Valid CreateUserRequestDTO createUserRequestDTO) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success("User created successfully", userService.createUser(createUserRequestDTO)));
 
     }
 

@@ -3,9 +3,8 @@ package com.abhinav.moviebooking.user.service;
 import com.abhinav.moviebooking.user.dto.request.CreateUserRequestDTO;
 import com.abhinav.moviebooking.user.dto.response.RoleResponseDTO;
 import com.abhinav.moviebooking.user.dto.response.UserResponseDTO;
-import com.abhinav.moviebooking.user.exception.RoleNotFoundException;
-import com.abhinav.moviebooking.user.exception.UserAlreadyExistsException;
-import com.abhinav.moviebooking.user.exception.UserNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Set;
@@ -16,7 +15,7 @@ public interface UserService {
 
     UserResponseDTO getUserById(Long id);
 
-    List<UserResponseDTO> getAllUsers();
+    Page<UserResponseDTO> getAllUsers(Pageable pageable);
 
     void assignRoleToUser(Long userId, String roles);
 

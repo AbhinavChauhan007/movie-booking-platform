@@ -1,14 +1,18 @@
 package com.abhinav.moviebooking.booking.state.impl;
 
 import com.abhinav.moviebooking.booking.state.BookingState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CancelledState implements BookingState {
 
+    private static final Logger log = LoggerFactory.getLogger(CancelledState.class);
+
     @Override
     public void handle(Long bookingId) {
-        System.out.println("Booking " + bookingId + " is CANCELLED");
+        log.info("Booking {} is CANCELLED", bookingId);
         // release seats, refund payment
     }
 }

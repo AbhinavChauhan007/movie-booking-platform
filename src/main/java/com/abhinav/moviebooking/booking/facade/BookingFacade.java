@@ -12,12 +12,16 @@ import com.abhinav.moviebooking.booking.read.BookingReadService;
 import com.abhinav.moviebooking.booking.seat.strategy.SeatType;
 import com.abhinav.moviebooking.booking.workflow.BookingExecutionContext;
 import com.abhinav.moviebooking.booking.workflow.impl.StandardBookingWorkflow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class BookingFacade {
+
+    private static final Logger log = LoggerFactory.getLogger(BookingFacade.class);
 
     private final StandardBookingWorkflow standardBookingWorkflow;
     private final BookingPersistenceAdapter bookingPersistenceAdapter;
@@ -52,7 +56,7 @@ public class BookingFacade {
                 bookingIdempotencyRepository.findById(idempotencyKey).orElse(null);
 
         if (existing != null) {
-            System.out.println("booking already confirmed");
+            log.info("Booking already confirmed for idempotency key: {}", idempotencyKey);
             return bookingReadService.getBooking(existing.getBookingId());
         }
 

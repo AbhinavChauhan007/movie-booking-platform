@@ -14,6 +14,10 @@ import com.abhinav.moviebooking.user.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashSet;
@@ -205,8 +209,8 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Should get all users successfully")
-    void getAllUsers_shouldReturnListOfUsers() {
+    @DisplayName("Should get all users successfully with pagination")
+    void getAllUsers_shouldReturnPageOfUsers() {
         // Given
         Role userRole = new Role();
         userRole.setName("USER");
@@ -223,16 +227,19 @@ class UserServiceTest {
         user2.setEmail("user2@example.com");
         user2.setRoles(new HashSet<>(Set.of(userRole)));
 
-        when(userRepository.findAllByActiveTrue()).thenReturn(List.of(user1, user2));
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> userPage = new PageImpl<>(List.of(user1, user2), pageable, 2);
+
+        when(userRepository.findAllByActiveTrue(pageable)).thenReturn(userPage);
 
         // When
-        List<UserResponseDTO> result = userService.getAllUsers();
+        Page<UserResponseDTO> result = userService.getAllUsers(pageable);
 
         // Then
-        assertEquals(2, result.size());
-        assertEquals("user1", result.get(0).getUsername());
-        assertEquals("user2", result.get(1).getUsername());
-        verify(userRepository).findAllByActiveTrue();
+        assertEquals(2, result.getContent().size());
+        assertEquals("user1", result.getContent().get(0).getUsername());
+        assertEquals("user2", result.getContent().get(1).getUsername());
+        verify(userRepository).findAllByActiveTrue(pageable);
     }
 
     @Test
@@ -315,6 +322,7 @@ class UserServiceTest {
         User user = new User();
         user.setId(userId);
         user.setUsername("johndoe");
+        user.setEmail("john@example.com");
 
         when(userRepository.findByIdAndActiveTrue(userId)).thenReturn(Optional.of(user));
 
@@ -347,17 +355,21 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Should return empty list when no users exist")
-    void getAllUsers_shouldReturnEmptyList_whenNoUsers() {
+    @DisplayName("Should return empty page when no users exist")
+    void getAllUsers_shouldReturnEmptyPage_whenNoUsers() {
         // Given
-        when(userRepository.findAllByActiveTrue()).thenReturn(List.of());
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        when(userRepository.findAllByActiveTrue(pageable)).thenReturn(emptyPage);
 
         // When
-        List<UserResponseDTO> result = userService.getAllUsers();
+        Page<UserResponseDTO> result = userService.getAllUsers(pageable);
 
         // Then
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(userRepository).findAllByActiveTrue();
+        assertEquals(0, result.getTotalElements());
+        verify(userRepository).findAllByActiveTrue(pageable);
     }
 }

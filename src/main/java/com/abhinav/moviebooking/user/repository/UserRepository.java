@@ -1,10 +1,10 @@
 package com.abhinav.moviebooking.user.repository;
 
 import com.abhinav.moviebooking.user.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -13,7 +13,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
-    List<User> findAllByActiveTrue();
+    Page<User> findAllByActiveTrue(Pageable pageable);
 
     Optional<User> findByIdAndActiveTrue(Long id);
 
